@@ -1,7 +1,7 @@
 import bpy
 from .config import __addon_name__
 from .i18n.dictionary import dictionary
-from .panels import MMR_property
+from .panels import MMR_property, MMR_bone_property
 from ...common.class_loader import auto_load
 from ...common.class_loader.auto_load import add_properties, remove_properties
 from ...common.i18n.dictionary import common_dictionary
@@ -12,7 +12,7 @@ bl_info = {
     "name": "MikuMikuRig",
     "author": "小峰峰哥l",
     "blender": (4, 2, 0),
-    "version": (1, 36),
+    "version": (1, 48),
     "description": "MMD骨骼优化工具",
     "tracker_url": "https://space.bilibili.com/2109816568?spm_id_from=333.1007.0.0",
     "support": "COMMUNITY",
@@ -29,6 +29,8 @@ def register():
     add_properties(_addon_properties)
     bpy.utils.register_class(MMR_property)
     bpy.types.Object.mmr = bpy.props.PointerProperty(type=MMR_property)
+    bpy.utils.register_class(MMR_bone_property)
+    bpy.types.PoseBone.mmr_bone = bpy.props.PointerProperty(type=MMR_bone_property)
 
     # 国际化（多语言支持相关操作）
     load_dictionary(dictionary)
@@ -44,5 +46,7 @@ def unregister():
     remove_properties(_addon_properties)
     del bpy.types.Object.mmr
     bpy.utils.unregister_class(MMR_property)
+    del bpy.types.PoseBone.mmr_bone
+    bpy.utils.unregister_class(MMR_bone_property)
 
     print("{}插件已卸载。".format(bl_info["name"]))

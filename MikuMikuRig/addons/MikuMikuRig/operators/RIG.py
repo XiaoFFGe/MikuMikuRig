@@ -1570,8 +1570,8 @@ class mmrrigOperator(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='EDIT')
             edit_bones = rigify.data.edit_bones
 
-            bone1 = edit_bones[key]
-            bone2 = edit_bones[value1]
+            bone1 = edit_bones.get(key)
+            bone2 = edit_bones.get(value1)
 
             if key in edit_bones and value1 in edit_bones:
                 bone2.parent = bone1

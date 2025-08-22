@@ -5,11 +5,11 @@ from .utilfuncs import *
 
 class MMR_BAC_anel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
-    bl_idname = "SCENE_PT_MMR_Rig_D"
+    bl_idname = "SCENE_PT_MMR_Rig_4"
     bl_region_type = "UI"
     bl_category = "MMR"
     bl_label = "骨骼映射工具"
-    bl_parent_id = "SCENE_PT_MMR_Rig_B"
+    bl_parent_id = "SCENE_PT_MMR_Rig_1"
 
     def draw(self, context):
         layout = self.layout

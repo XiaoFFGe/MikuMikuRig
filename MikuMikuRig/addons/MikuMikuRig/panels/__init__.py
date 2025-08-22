@@ -216,3 +216,40 @@ class MMR_property(bpy.types.PropertyGroup):
         default=False,
         description="使用 MMR 1.20版的约束算法"
     )
+    # 软度
+    Softness: FloatProperty(
+        default=0.4,
+        min=0,
+        max=1,
+    )
+    # 废弃功能
+    Discarded_function: BoolProperty(
+        default=False,
+    )
+    # 是否开启物理
+    physics_bool: BoolProperty(
+        default=False,
+    )
+
+class MMR_bone_property(bpy.types.PropertyGroup):
+    # 碰撞组掩码属性 - 16个布尔值
+    collision_group_mask: bpy.props.BoolVectorProperty(
+        name="Collision Group Mask",
+        size=16,  # 16个碰撞组
+        default=(False,) * 16,  # 默认全部勾选
+        description="Which collision groups this object should interact with"
+    )
+    # 碰撞组编号
+    collision_group_index: bpy.props.IntProperty(
+        name="Collision Group Index",
+        default=0,
+        min=0,
+        max=15,
+    )
+    # 阻尼
+    damping: bpy.props.FloatProperty(
+        name="Damping",
+        default=0.99,
+        min=0.0,
+        max=1.0,
+    )

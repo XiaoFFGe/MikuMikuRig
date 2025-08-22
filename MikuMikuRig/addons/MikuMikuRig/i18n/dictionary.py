@@ -39,6 +39,22 @@ dictionary = {
         ("", "Bend angle"): "角度",
         ("", "Use ITASC solver"): "使用ITASC解算器",
         ("", "ORG mode"): "ORG模式",
+        ("*", "Physics options"): " 物理选项",
+        ("Operator", "Add Damping Tracking"): "添加阻尼追踪",
+        ("", "Softness"): "阻尼柔和度",
+        ("", "Damping Tracking"): "阻尼追踪",
+        ("", "MMD Rigidbody"): "MMD刚体",
+        ("", "Collision Group Mask:"): "碰撞组遮罩：",
+        ("", "Collision Group"): "碰撞组",
+        ("", "Damping"): "阻尼",
+        ("", "Please select a bone"): "请选择一个骨骼",
+        ("Operator","Assign Rigidbody"): "装配刚体",
+        ("Operator","Assign armature Rigidbody"): "装配骨架刚体",
+        ("","Discarded function"):"废弃功能",
+        ("Operator", "Show Rigidbody"): "显示刚体",
+        ("Operator", "Select Collision Group"): "选择碰撞组",
+        ("Operator", "Select By Type"): "按类型选择",
+
     }
 }
 
