@@ -54,6 +54,7 @@ dictionary = {
         ("Operator", "Show Rigidbody"): "显示刚体",
         ("Operator", "Select Collision Group"): "选择碰撞组",
         ("Operator", "Select By Type"): "按类型选择",
+        ("", "collision collections:"): "碰撞集合：",
 
     }
 }

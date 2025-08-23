@@ -583,8 +583,14 @@ class Update_World(bpy.types.Operator):
 
         scene = context.scene
 
+        rigidbody_world = context.scene.rigidbody_world
+
+        point_cache = rigidbody_world.point_cache
+
         scene.rigidbody_world.substeps_per_frame = 3
         scene.rigidbody_world.solver_iterations = 8
+
+        point_cache.frame_end = scene.frame_end
 
         return {'FINISHED'}
 

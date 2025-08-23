@@ -334,8 +334,16 @@ class Physics_Panel(bpy.types.Panel):
             c.prop(obj.rigid_body, "restitution")
             c.prop(obj.rigid_body, "friction")
 
+            col = layout.column(align=True)
+            col.label(text=i18n("collision collections:"))
+            c = col.row(align=True)
+            for i in range(10):
+                c.prop(obj.rigid_body, "collision_collections", index=i, text=str(i), toggle=True)
+            c = col.row(align=True)
+            for i in range(10, 20):
+                c.prop(obj.rigid_body, "collision_collections", index=i, text=str(i), toggle=True)
+
             c = layout.column()
-            # c.prop(obj.mmd_rigid, 'collision_group_mask')
             col = c.column(align=True)
             col.label(text="Collision Group Mask:")
             row = col.row(align=True)
