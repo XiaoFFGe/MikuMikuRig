@@ -127,10 +127,12 @@ class mmrdesignatedOperator(bpy.types.Operator):
                 # 更新提示
                 mmr.json_txt = "请选择: " + fourth_key.removeprefix('p-') + '--' + config[fourth_key]
 
-                for bone in mmd_arm.data.bones:  # 遍历所有骨骼
-                    if bone.name == fourth_key.removeprefix('p-'):
-                        bone.select =True
-                        mmd_arm.data.bones.active = bone
+                # 选择骨骼
+                for Bone in mmd_arm.pose.bones:
+                    if Bone.name == fourth_key.removeprefix('p-'):
+                        mmd_arm.data.bones.active = mmd_arm.data.bones.get(fourth_key.removeprefix('p-'))
+                        Bone.select = True
+                        break
 
                 print(mmr.number, fourth_key)
 

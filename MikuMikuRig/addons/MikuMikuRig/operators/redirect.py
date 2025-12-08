@@ -103,10 +103,6 @@ class MMR_redirect(bpy.types.Operator):
         else:
             root_parent_copy = root_parent_copy.name  # 获取父级的名称
 
-        # 清空骨骼父级
-        arm.data.edit_bones['torso'].parent = None
-        arm.data.edit_bones['root'].parent = None
-
         # 导入FBX文件
         bpy.ops.import_scene.fbx(filepath=self.filepath)
         # 获取FBX文件名称
@@ -145,6 +141,14 @@ class MMR_redirect(bpy.types.Operator):
         target_script = os.path.join(new_path, 'presets', mmr.py_presets + '.py')  # 目标脚本路径
 
         bpy.ops.script.python_file_run(filepath=target_script)  # 运行脚本
+
+        if mmr.Manually_adjust_FBX_movements:
+            bpy.ops.object.mode_set(mode='POSE')
+            return {"FINISHED"}
+
+        # 清空骨骼父级
+        arm.data.edit_bones['torso'].parent = None
+        arm.data.edit_bones['root'].parent = None
 
         bpy.ops.object.mode_set(mode='EDIT')  # 进入编辑模式
         # 设置骨骼父级
@@ -370,7 +374,7 @@ class MMR_redirect(bpy.types.Operator):
         for bone in armature.pose.bones:
             for constraint in bone.constraints:
                 if constraint.name == "BAC_ROT_COPY":
-                    bone.bone.select = True
+                    bone.select = True
                     break
 
         bpy.ops.nla.bake(frame_start=int(start_frame), frame_end=int(end_frame), visual_keying=True, bake_types={'POSE'})
@@ -632,10 +636,6 @@ class MMR_Import_VMD(bpy.types.Operator):
         else:
             root_parent_copy = root_parent_copy.name  # 获取父级的名称
 
-        # 清空骨骼父级
-        arm.data.edit_bones['torso'].parent = None
-        arm.data.edit_bones['root'].parent = None
-
         # 获取FBX文件名称
         fbx_name = os.path.basename(self.filepath)
         # 移除扩展名
@@ -676,6 +676,14 @@ class MMR_Import_VMD(bpy.types.Operator):
         target_script = os.path.join(new_path, 'MMR_OP_Presets', 'MMR_VMD.py')  # 目标脚本路径
 
         bpy.ops.script.python_file_run(filepath=target_script)  # 运行脚本
+
+        if mmr.Manually_adjust_VMD_movements:
+            bpy.ops.object.mode_set(mode='POSE')
+            return {"FINISHED"}
+
+        # 清空骨骼父级
+        arm.data.edit_bones['torso'].parent = None
+        arm.data.edit_bones['root'].parent = None
 
         bpy.ops.object.mode_set(mode='EDIT')  # 进入编辑模式
         # 设置骨骼父级
@@ -901,7 +909,7 @@ class MMR_Import_VMD(bpy.types.Operator):
         for bone in armature.pose.bones:
             for constraint in bone.constraints:
                 if constraint.name == "BAC_ROT_COPY":
-                    bone.bone.select = True
+                    bone.select = True
                     break
 
         bpy.ops.nla.bake(frame_start=int(start_frame), frame_end=int(end_frame), visual_keying=True, bake_types={'POSE'})

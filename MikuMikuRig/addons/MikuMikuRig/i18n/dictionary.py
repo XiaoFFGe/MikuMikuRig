@@ -55,6 +55,17 @@ dictionary = {
         ("Operator", "Select Collision Group"): "选择碰撞组",
         ("Operator", "Select By Type"): "按类型选择",
         ("", "collision collections:"): "碰撞集合：",
+        ("", "Please choose a skeleton"): "请选择一个骨架",
+        ("", "Manually adjust VMD movements"): "手动调整VMD动作",
+        ("", "Manually adjust FBX movements"): "手动调整FBX动作",
+        ("", "Wrist twist preset"): "捩骨预设",
+        ("", "Left upper arm twist"): "左大臂扭转",
+        ("", "Right upper arm twist"): "右大臂扭转",
+        ("", "Left lower arm twist"): "左小臂扭转",
+        ("", "Right lower arm twist"): "右小臂扭转",
+        ("Operator", "Add Mouth Panel"): "添加口型面板",
+        ("", "Customize the panel preset"): "自定义面板预设",
+        ("", "Constraint Bone"): "约束骨骼",
 
     }
 }

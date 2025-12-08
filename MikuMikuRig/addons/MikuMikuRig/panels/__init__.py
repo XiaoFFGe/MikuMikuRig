@@ -4,7 +4,7 @@ from bpy.props import *
 
 from MikuMikuRig.addons.MikuMikuRig.config import __addon_name__
 
-# 哇哦~文件缓存系统得了vmp！
+# 哇哦~文件缓存系统得了mvp！
 file_cache = {
     ".json": {"mtime": 0, "files": [], "files_ic": []},
     ".py": {"mtime": 0, "files": [], "files_ic": []}
@@ -112,6 +112,18 @@ class MMR_property(bpy.types.PropertyGroup):
         default=False,
     )
 
+    Manually_adjust_VMD_movements: BoolProperty(
+        name="Manually adjust VMD movements",
+        default=False,
+        description="手动调整VMD动作"
+    )
+
+    Manually_adjust_FBX_movements: BoolProperty(
+        name="Manually adjust FBX movements",
+        default=False,
+        description="手动调整FBX动作"
+    )
+
     # 创建布尔属性作为极向目标开关
     Polar_target: BoolProperty(
         name="Polar target",
@@ -215,6 +227,69 @@ class MMR_property(bpy.types.PropertyGroup):
     ORG_mode: BoolProperty(
         default=False,
         description="使用 MMR 1.20版的约束算法"
+    )
+    # 设置捩骨预设
+    Wrist_twist_preset: BoolProperty(
+        name="Wrist twist preset",
+        default=False,
+        description="选择捩骨预设",
+    )
+    # 左大臂扭转名称
+    Left_upper_arm_twist: StringProperty(
+        default="腕捩.L",
+        description="左大臂扭转名称"
+    )
+    # 右大臂扭转名称
+    Right_upper_arm_twist: StringProperty(
+        default="腕捩.R",
+        description="右大臂扭转名称"
+    )
+    # 左小臂扭转名称
+    Left_lower_arm_twist: StringProperty(
+        default="手捩.L",
+        description="左小臂扭转名称"
+    )
+    # 右小臂扭转名称
+    Right_lower_arm_twist: StringProperty(
+        default="手捩.R",
+        description="右小臂扭转名称"
+    )
+    # 面板预设
+    panel_preset: BoolProperty(
+        name="Panel preset",
+        default=False,
+        description="自定义面板预设"
+    )
+
+    # 面板预设 “bone”
+    panel_preset_bone: StringProperty(
+        default="頭",
+        description="自定义面板预设 “bone”"
+    )
+    # 面板预设 “A”
+    panel_preset_A: StringProperty(
+        default="あ",
+        description="自定义面板预设 “A”"
+    )
+    # 面板预设 “I”
+    panel_preset_I: StringProperty(
+        default="い",
+        description="自定义面板预设 “I”"
+    )
+    # 面板预设 “U”
+    panel_preset_U: StringProperty(
+        default="う",
+        description="自定义面板预设 “U”"
+    )
+    # 面板预设 “E”
+    panel_preset_E: StringProperty(
+        default="え",
+        description="自定义面板预设 “E”"
+    )
+    # 面板预设 “O”
+    panel_preset_O: StringProperty(
+        default="お",
+        description="自定义面板预设 “O”"
     )
     # 软度
     Softness: FloatProperty(

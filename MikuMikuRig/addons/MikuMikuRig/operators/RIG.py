@@ -1,3 +1,5 @@
+import re
+
 import bpy
 import os
 import logging
@@ -9,490 +11,8 @@ import os
 from math import radians
 import numpy as np
 
+from MikuMikuRig.common.class_loader.auto_load import blender_version
 
-class mmdarmoptOperator(bpy.types.Operator):
-    '''Optimization MMD Armature'''
-    bl_idname = "object.mmd_arm_opt"
-    bl_label = "Optimization MMD Armature"
-
-    # 确保在操作之前备份数据，用户撤销操作时可以恢复
-    bl_options = {'REGISTER', 'UNDO'}
-
-    # 验证物体是不是骨骼
-    @classmethod
-    def poll(cls, context):
-        obj = context.view_layer.objects.active
-        if obj is not None:
-            if obj.type == 'ARMATURE':
-                return True
-        return False
-
-    def execute(self, context: bpy.types.Context):
-        # 当前活动物体名称
-        active_object_name = bpy.context.active_object.name
-        print("当前活动物体名称:", active_object_name)
-
-        # 验证当前活动物体是不是骨骼(防刁民)
-        def is_active_object_armature(context):
-            active_obj = context.view_layer.objects.active
-            if active_obj:
-                return active_obj.type == 'ARMATURE'
-            return False
-
-        if is_active_object_armature(bpy.context):
-            armature = bpy.context.active_object.data
-            # 获取活动骨骼对象的所有骨骼集合名称
-            collection_names = [collection.name for collection in armature.collections]
-            # 进入姿态模式
-            bpy.ops.object.mode_set(mode='POSE')
-            bpy.ops.pose.select_all(action='DESELECT')  # 取消所有选择
-
-            # 遍历骨骼集合名称列表，并设置它们的可见性
-            for name in collection_names:
-                if name in bpy.context.object.data.collections_all:
-                    bpy.context.object.data.collections_all[name].is_visible = False
-
-            # 全选骨骼
-            bpy.ops.pose.select_all(action='SELECT')
-            # 检查是否有选中骨骼
-            armature = bpy.context.active_object
-            if armature and armature.type == 'ARMATURE':
-                selected = any(bone.bone.select for bone in armature.pose.bones)
-                if selected:
-                    print('已有选中骨骼')
-                    # 再次检查选中骨骼状态并打印详细信息（再次防刁民）
-                    selected_bones = [bone.name for bone in armature.pose.bones if bone.bone.select]
-                    print(f"选中的骨骼有: {selected_bones}")
-                    # 创建新的骨骼集合
-                    bpy.ops.armature.collection_add('INVOKE_DEFAULT')
-                    new_collection = bpy.context.active_object.data.collections[-1]
-                    new_collection.name = "[其他]"  # 名称
-                    bpy.ops.armature.collection_assign('INVOKE_DEFAULT')
-                    bpy.ops.pose.select_all(action='DESELECT')  # 取消所有选择
-                    bpy.context.object.data.collections_all[new_collection.name].is_visible = False
-                else:
-                    print('没有其他骨骼')
-
-            # 遍历Groups列表
-            Groups = ['Root', 'センター', 'ＩＫ', '体(上)', '腕', '指', '体(下)', '足']
-            for group in Groups:
-                if group in bpy.context.object.data.collections_all:
-                    bpy.context.object.data.collections_all[group].is_visible = True
-
-            # 获取指定骨骼集合中的骨骼名称列表
-            def get_bone_names_in_collection(collection_name):  # 定义一个函数
-                bone_name_list = []
-                # 获取当前活动对象并判断是否为骨骼对象
-                armature_obj = bpy.context.active_object
-                if armature_obj and armature_obj.type == 'ARMATURE':
-                    # 遍历骨骼集合
-                    for collection in armature_obj.data.collections:
-                        if collection.name == collection_name:
-                            # 遍历骨骼集合中的骨骼并添加名称到列表
-                            for bone in collection.bones:
-                                bone_name_list.append(bone.name)
-                return bone_name_list
-
-            result = get_bone_names_in_collection('Root')
-            print(result)
-            # 遍历结果列表，为每个骨骼设置颜色调色板
-            for bone_name in result:
-                if bone_name in bpy.context.object.data.bones:
-                    bpy.context.object.data.bones[bone_name].color.palette = 'THEME09'
-
-            result = get_bone_names_in_collection('センター')
-            print(result)
-            # 遍历结果列表，为每个骨骼设置颜色调色板
-            for bone_name in result:
-                if bone_name in bpy.context.object.data.bones:
-                    bpy.context.object.data.bones[bone_name].color.palette = 'THEME09'
-
-            result = get_bone_names_in_collection('ＩＫ')
-            print(result)
-            # 遍历结果列表，为每个骨骼设置颜色调色板
-            for bone_name in result:
-                if bone_name in bpy.context.object.data.bones:
-                    bpy.context.object.data.bones[bone_name].color.palette = 'THEME01'
-
-            result = get_bone_names_in_collection('体(上)')
-            print(result)
-            # 遍历结果列表，为每个骨骼设置颜色调色板
-            for bone_name in result:
-                if bone_name in bpy.context.object.data.bones:
-                    bpy.context.object.data.bones[bone_name].color.palette = 'THEME04'
-
-            result = get_bone_names_in_collection('腕')
-            print(result)
-            # 遍历结果列表，为每个骨骼设置颜色调色板
-            for bone_name in result:
-                if bone_name in bpy.context.object.data.bones:
-                    bpy.context.object.data.bones[bone_name].color.palette = 'THEME03'
-
-            result = get_bone_names_in_collection('体(下)')
-            print(result)
-            # 遍历结果列表，为每个骨骼设置颜色调色板
-            for bone_name in result:
-                if bone_name in bpy.context.object.data.bones:
-                    bpy.context.object.data.bones[bone_name].color.palette = 'THEME04'
-
-            result = get_bone_names_in_collection('足')
-            print(result)
-            # 遍历结果列表，为每个骨骼设置颜色调色板
-            for bone_name in result:
-                if bone_name in bpy.context.object.data.bones:
-                    bpy.context.object.data.bones[bone_name].color.palette = 'THEME03'
-
-            result = get_bone_names_in_collection('指')
-            print(result)
-            # 遍历结果列表，为每个骨骼设置颜色调色板
-            for bone_name in result:
-                if bone_name in bpy.context.object.data.bones:
-                    bpy.context.object.data.bones[bone_name].color.palette = 'THEME04'
-
-            # 处理左侧(L)骨骼
-
-            # 检查骨骼 "手IK.L" 是否存在
-            if "手IK.L" not in bpy.context.object.data.bones.keys():
-                # 编辑模式
-                bpy.ops.object.mode_set(mode='EDIT')
-
-                # 取消所有选择
-                bpy.ops.armature.select_all(action='DESELECT')
-                # 选择活动骨骼
-                bpy.ops.object.select_pattern(pattern="手首.L", extend=False)
-                armature = bpy.context.edit_object.data
-                bone = armature.edit_bones.get('手首.L')
-                bpy.context.edit_object.data.edit_bones.active = bone
-                # 复制骨骼
-                bpy.ops.armature.duplicate_move(ARMATURE_OT_duplicate={"do_flip_names": False},
-                                                TRANSFORM_OT_translate={"value": (0, 0, 0)})
-                # 获取复制后的骨骼列表
-                new_bones = bpy.context.selected_bones
-
-                # 遍历新骨骼，并根据需要更改名称
-                for i, bone in enumerate(new_bones, start=1):
-                    # 构造新的骨骼名称
-                    new_bone_name = "手IK.L"
-                    bone.name = new_bone_name
-                # 进入姿态模式
-                bpy.ops.object.mode_set(mode='POSE')
-                # 执行放大操作，在X、Y、Z轴方向上都放大2倍
-                bpy.ops.transform.resize(value=(2, 2, 2))
-                bpy.context.object.data.bones["手IK.L"].color.palette = 'THEME01'
-                # 解除位置限制
-                bpy.context.active_pose_bone.lock_location[0] = False
-                bpy.context.active_pose_bone.lock_location[1] = False
-                bpy.context.active_pose_bone.lock_location[2] = False
-                bpy.context.object.data.bones["手IK.L"].color.palette = 'THEME01'
-
-                # 取消所有选择
-                bpy.ops.pose.select_all(action='DESELECT')
-                # 编辑模式
-                bpy.ops.object.mode_set(mode='EDIT')
-                # 选择活动骨骼
-                bpy.ops.object.select_pattern(pattern="手首.L", extend=False)
-                armature = bpy.context.edit_object.data
-                bone = armature.edit_bones.get('手首.L')
-                bpy.context.edit_object.data.edit_bones.active = bone
-                # 姿态模式
-                bpy.ops.object.mode_set(mode='POSE')
-
-                # 检查名为'【复制旋转】.L'的约束是否存在
-                def ik_constraint_exists():
-                    active_bone = bpy.context.active_pose_bone
-                    if active_bone:
-                        for constraint in active_bone.constraints:
-                            if constraint.name == '【复制旋转】.L':
-                                return True
-                    return False
-
-                # 复制旋转约束
-                bpy.ops.pose.constraint_add(type='COPY_ROTATION')
-                active_bone = bpy.context.active_pose_bone
-                # 找到刚添加的约束
-                constraint = active_bone.constraints[-1]
-                # 重命名约束
-                constraint.name = '【复制旋转】.L'
-                # 设置复制旋转约束
-                bpy.context.object.pose.bones["手首.L"].constraints["【复制旋转】.L"].target = bpy.data.objects[
-                    active_object_name]
-                bpy.context.object.pose.bones["手首.L"].constraints["【复制旋转】.L"].subtarget = "手IK.L"
-                bpy.context.object.pose.bones["手首.L"].constraints["【复制旋转】.L"].mix_mode = 'REPLACE'
-                bpy.context.object.pose.bones["手首.L"].constraints["【复制旋转】.L"].influence = 1
-
-            else:
-                print('骨骼已存在')
-                bpy.context.object.data.bones["手IK.L"].color.palette = 'THEME01'
-
-            # 编辑模式
-            bpy.ops.object.mode_set(mode='EDIT')
-            # 取消所有选择
-            bpy.ops.armature.select_all(action='DESELECT')
-
-            bone_names = ["手IK.L", 'ひじ.L']
-            found = False
-            # 遍历列表
-            for bone in bpy.context.object.data.bones:
-                if bone.name in bone_names:
-                    bpy.ops.object.select_pattern(pattern=bone.name)
-                    # 执行清除父级操作
-                    bpy.ops.armature.parent_clear(type='CLEAR')
-                    print(f"找到并清除了名为 {bone.name} 的骨骼的父级关系")
-                    found = True
-                    # 取消所有选择
-                    bpy.ops.armature.select_all(action='DESELECT')
-
-            if not found:
-                print("未找到骨骼")
-
-            # 骨骼名称列表
-            bone1_names = ['ひじ.L', '腕.L']
-            # 遍历骨骼名称列表进行选择
-            for bone_name in bone1_names:
-                bpy.ops.object.select_pattern(pattern=bone_name)
-            # 获取当前编辑的骨骼数据
-            armature = bpy.context.edit_object.data
-            active_bone = armature.edit_bones.get('腕.L')
-            # 设为活动骨骼
-            if active_bone:
-                bpy.context.edit_object.data.edit_bones.active = active_bone
-            # 认爸爸
-            bpy.ops.armature.parent_set(type='OFFSET')
-            # ---------------------------------------------------------------------
-            # 取消所有选择
-            bpy.ops.armature.select_all(action='DESELECT')
-            # 骨骼名称列表
-            bone1_names = ['手IK.L', 'センター']
-            # 遍历骨骼名称列表进行选择
-            for bone_name in bone1_names:
-                bpy.ops.object.select_pattern(pattern=bone_name)
-            # 获取当前编辑的骨骼数据
-            armature = bpy.context.edit_object.data
-            active_bone = armature.edit_bones.get('センター')
-            # 设为活动骨骼
-            if active_bone:
-                bpy.context.edit_object.data.edit_bones.active = active_bone
-            # 认爸爸
-            bpy.ops.armature.parent_set(type='OFFSET')
-
-            # 取消所有选择
-            bpy.ops.armature.select_all(action='DESELECT')
-
-            # 选择活动骨骼
-            bpy.ops.object.select_pattern(pattern="ひじ.L", extend=False)
-            armature = bpy.context.edit_object.data
-            bone = armature.edit_bones.get('ひじ.L')
-            bpy.context.edit_object.data.edit_bones.active = bone
-
-            # 进入姿态模式
-            bpy.ops.object.mode_set(mode='POSE')
-
-            # 检查名为'【IK】'的约束是否存在
-            def ik_constraint_exists():
-                active_bone = bpy.context.active_pose_bone
-                if active_bone:
-                    for constraint in active_bone.constraints:
-                        if constraint.name == '【IK】L':
-                            return True
-                return False
-
-            if not ik_constraint_exists():
-                # IK约束
-                bpy.ops.pose.constraint_add(type='IK')
-                active_bone = bpy.context.active_pose_bone
-                # 找到刚添加的IK约束
-                ik_constraint = active_bone.constraints[-1]
-                # 重命名约束
-                ik_constraint.name = '【IK】L'
-                # 设置IK约束
-                bpy.context.object.pose.bones["ひじ.L"].constraints["【IK】L"].influence = 1
-            bpy.context.object.pose.bones["ひじ.L"].constraints["【IK】L"].target = bpy.data.objects[active_object_name]
-            bpy.context.object.pose.bones["ひじ.L"].constraints["【IK】L"].subtarget = "手IK.L"
-            bpy.context.object.pose.bones["ひじ.L"].constraints["【IK】L"].chain_count = 2
-            bpy.context.object.pose.bones["ひじ.L"].constraints["【IK】L"].iterations = 200
-
-            # 取消所有选择
-            bpy.ops.pose.select_all(action='DESELECT')
-
-            #-----------------------------------------------------------------------------------------------------------
-
-            # 处理右侧(R)骨骼
-
-            # 检查骨骼 "手IK.R" 是否存在
-            if "手IK.R" not in bpy.context.object.data.bones.keys():
-                # 编辑模式
-                bpy.ops.object.mode_set(mode='EDIT')
-
-                # 取消所有选择
-                bpy.ops.armature.select_all(action='DESELECT')
-                # 选择活动骨骼
-                bpy.ops.object.select_pattern(pattern="手首.R", extend=False)
-                armature = bpy.context.edit_object.data
-                bone = armature.edit_bones.get('手首.R')
-                bpy.context.edit_object.data.edit_bones.active = bone
-                # 复制骨骼
-                bpy.ops.armature.duplicate_move(ARMATURE_OT_duplicate={"do_flip_names": False},
-                                                TRANSFORM_OT_translate={"value": (0, 0, 0)})
-                # 获取复制后的骨骼列表
-                new_bones = bpy.context.selected_bones
-
-                # 遍历新骨骼，并根据需要更改名称
-                for i, bone in enumerate(new_bones, start=1):
-                    # 构造新的骨骼名称
-                    new_bone_name = "手IK.R"
-                    bone.name = new_bone_name
-                # 进入姿态模式
-                bpy.ops.object.mode_set(mode='POSE')
-                # 执行放大操作，在X、Y、Z轴方向上都放大2倍
-                bpy.ops.transform.resize(value=(2, 2, 2))
-                bpy.context.object.data.bones["手IK.R"].color.palette = 'THEME01'
-                # 解除位置限制
-                bpy.context.active_pose_bone.lock_location[0] = False
-                bpy.context.active_pose_bone.lock_location[1] = False
-                bpy.context.active_pose_bone.lock_location[2] = False
-                bpy.context.object.data.bones["手IK.R"].color.palette = 'THEME01'
-
-                # 取消所有选择
-                bpy.ops.pose.select_all(action='DESELECT')
-                # 编辑模式
-                bpy.ops.object.mode_set(mode='EDIT')
-                # 选择活动骨骼
-                bpy.ops.object.select_pattern(pattern="手首.R", extend=False)
-                armature = bpy.context.edit_object.data
-                bone = armature.edit_bones.get('手首.R')
-                bpy.context.edit_object.data.edit_bones.active = bone
-                # 姿态模式
-                bpy.ops.object.mode_set(mode='POSE')
-
-                # 检查名为'【复制旋转】.R'的约束是否存在
-                def ik_constraint_exists():
-                    active_bone = bpy.context.active_pose_bone
-                    if active_bone:
-                        for constraint in active_bone.constraints:
-                            if constraint.name == '【复制旋转】.R':
-                                return True
-                    return False
-
-                # 复制旋转约束
-                bpy.ops.pose.constraint_add(type='COPY_ROTATION')
-                active_bone = bpy.context.active_pose_bone
-                # 找到刚添加的约束
-                constraint = active_bone.constraints[-1]
-                # 重命名约束
-                constraint.name = '【复制旋转】.R'
-                # 设置复制旋转约束
-                bpy.context.object.pose.bones["手首.R"].constraints["【复制旋转】.R"].target = bpy.data.objects[
-                    active_object_name]
-                bpy.context.object.pose.bones["手首.R"].constraints["【复制旋转】.R"].subtarget = "手IK.R"
-                bpy.context.object.pose.bones["手首.R"].constraints["【复制旋转】.R"].mix_mode = 'REPLACE'
-                bpy.context.object.pose.bones["手首.R"].constraints["【复制旋转】.R"].influence = 1
-
-
-            else:
-                print('骨骼已存在')
-                bpy.context.object.data.bones["手IK.R"].color.palette = 'THEME01'
-
-            # 编辑模式
-            bpy.ops.object.mode_set(mode='EDIT')
-            # 取消所有选择
-            bpy.ops.armature.select_all(action='DESELECT')
-
-            bone_names = ["手IK.R", 'ひじ.R']
-            found = False
-            # 遍历列表
-            for bone in bpy.context.object.data.bones:
-                if bone.name in bone_names:
-                    bpy.ops.object.select_pattern(pattern=bone.name)
-                    # 执行清除父级操作
-                    bpy.ops.armature.parent_clear(type='CLEAR')
-                    print(f"找到并清除了名为 {bone.name} 的骨骼的父级关系")
-                    found = True
-                    # 取消所有选择
-                    bpy.ops.armature.select_all(action='DESELECT')
-
-            if not found:
-                print("未找到骨骼")
-
-            # 骨骼名称列表
-            bone1_names = ['ひじ.R', '腕.R']
-            # 遍历骨骼名称列表进行选择
-            for bone_name in bone1_names:
-                bpy.ops.object.select_pattern(pattern=bone_name)
-            # 获取当前编辑的骨骼数据
-            armature = bpy.context.edit_object.data
-            active_bone = armature.edit_bones.get('腕.R')
-            # 设为活动骨骼
-            if active_bone:
-                bpy.context.edit_object.data.edit_bones.active = active_bone
-            # 认爸爸
-            bpy.ops.armature.parent_set(type='OFFSET')
-            # ---------------------------------------------------------------------
-            # 取消所有选择
-            bpy.ops.armature.select_all(action='DESELECT')
-            # 骨骼名称列表
-            bone1_names = ['手IK.R', 'センター']
-            # 遍历骨骼名称列表进行选择
-            for bone_name in bone1_names:
-                bpy.ops.object.select_pattern(pattern=bone_name)
-            # 获取当前编辑的骨骼数据
-            armature = bpy.context.edit_object.data
-            active_bone = armature.edit_bones.get('センター')
-            # 设为活动骨骼
-            if active_bone:
-                bpy.context.edit_object.data.edit_bones.active = active_bone
-            # 认爸爸
-            bpy.ops.armature.parent_set(type='OFFSET')
-            # 取消所有选择
-            bpy.ops.armature.select_all(action='DESELECT')
-
-            # 选择活动骨骼
-            bpy.ops.object.select_pattern(pattern="ひじ.R", extend=False)
-            armature = bpy.context.edit_object.data
-            bone = armature.edit_bones.get('ひじ.R')
-            bpy.context.edit_object.data.edit_bones.active = bone
-
-            # 进入姿态模式
-            bpy.ops.object.mode_set(mode='POSE')
-
-            # 检查名为'【IK】'的约束是否存在
-            def ik_constraint_exists():
-                active_bone = bpy.context.active_pose_bone
-                if active_bone:
-                    for constraint in active_bone.constraints:
-                        if constraint.name == '【IK】R':
-                            return True
-                return False
-
-            if not ik_constraint_exists():
-                # IK约束
-                bpy.ops.pose.constraint_add(type='IK')
-                active_bone = bpy.context.active_pose_bone
-                # 找到刚添加的IK约束
-                ik_constraint = active_bone.constraints[-1]
-                # 重命名约束
-                ik_constraint.name = '【IK】R'
-                # 设置IK约束
-                bpy.context.object.pose.bones["ひじ.R"].constraints["【IK】R"].influence = 1
-            bpy.context.object.pose.bones["ひじ.R"].constraints["【IK】R"].target = bpy.data.objects[active_object_name]
-            bpy.context.object.pose.bones["ひじ.R"].constraints["【IK】R"].subtarget = "手IK.R"
-            bpy.context.object.pose.bones["ひじ.R"].constraints["【IK】R"].chain_count = 2
-            bpy.context.object.pose.bones["ひじ.R"].constraints["【IK】R"].iterations = 200
-            # 取消所有选择
-            bpy.ops.pose.select_all(action='DESELECT')
-
-            # 改为各自的原点
-            bpy.context.scene.tool_settings.transform_pivot_point = 'INDIVIDUAL_ORIGINS'
-            # 开启自动IK
-            bpy.context.object.pose.use_auto_ik = True
-
-            # 切换回物体模式
-            bpy.ops.object.mode_set(mode='OBJECT')
-
-            self.report({'INFO'}, '优化成功!')
-        else:
-            self.report({'ERROR'}, '当前活动物体不是骨骼')
-
-        return {'FINISHED'}
 
 class polartargetOperator(bpy.types.Operator):
     '''Optimization MMD Armature'''
@@ -512,167 +32,12 @@ class polartargetOperator(bpy.types.Operator):
         return False
 
     def execute(self, context: bpy.types.Context):
-        # 当前活动物体名称
-        active_object_name = bpy.context.active_object.name
-        print("当前活动物体名称:", active_object_name)
-        # 调用操作
-        bpy.ops.object.mmd_arm_opt()
-        # 处理左侧(L)骨骼
-        if "手PT.L" not in bpy.context.object.data.bones.keys():
-            # 编辑模式
-            bpy.ops.object.mode_set(mode='EDIT')
-            # 取消所有选择
-            bpy.ops.armature.select_all(action='DESELECT')
-            # 选择活动骨骼
-            bpy.ops.object.select_pattern(pattern="腕.L", extend=False)
-            armature = bpy.context.edit_object.data
-            bone = armature.edit_bones.get('腕.L')
-            bpy.context.edit_object.data.edit_bones.active = bone
-            # 挤出骨骼
-            bpy.ops.armature.extrude_move(ARMATURE_OT_extrude={"forked": False},
-                                          TRANSFORM_OT_translate={"value": (0, 0.15, 0), "orient_type": 'GLOBAL',
-                                                                  "orient_matrix": ((1, 0, 0), (0, 1, 0), (0, 0, 1))})
-            # 获取活跃的对象
-            active_obj = bpy.context.active_object
-            # 获取骨架数据
-            armature_data = active_obj.data
-            # 获取编辑模式下的骨骼列表
-            edit_bones = armature_data.edit_bones
-            # 获取最后挤出的骨骼的索引
-            last_extruded_bone_index = len(edit_bones) - 1
-            # 获取最后挤出的骨骼的名称
-            last_extruded_bone_name = edit_bones[last_extruded_bone_index].name
-            print("新挤出的骨骼名称:", last_extruded_bone_name)
-            # 选择活动骨骼
-            bpy.ops.object.select_pattern(pattern=last_extruded_bone_name, extend=False)
-            armature = bpy.context.edit_object.data
-            bone = armature.edit_bones.get(last_extruded_bone_name)
-            bpy.context.edit_object.data.edit_bones.active = bone
-            # 清空父级
-            bpy.ops.armature.parent_clear(type='CLEAR')
-            # 改名称
-            bpy.context.active_bone.name = "手PT.L"
-            # 移动
-            bpy.ops.transform.translate(value=(0, +0.15, 0), orient_type='GLOBAL',
-                                        orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)))
-            # 进入姿态模式
-            bpy.ops.object.mode_set(mode='POSE')
-            bpy.context.object.data.bones["手PT.L"].color.palette = 'THEME11'
-            # 选择活动骨骼
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.object.select_pattern(pattern="ひじ.L", extend=False)
-            armature = bpy.context.edit_object.data
-            bone = armature.edit_bones.get('ひじ.L')
-            bpy.context.edit_object.data.edit_bones.active = bone
-            # 进入姿态模式
-            bpy.ops.object.mode_set(mode='POSE')
-            bpy.context.object.pose.bones["ひじ.L"].constraints["【IK】L"].pole_target = bpy.data.objects[
-                active_object_name]
-            bpy.context.object.pose.bones["ひじ.L"].constraints["【IK】L"].pole_subtarget = "手PT.L"
-        else:
-            print("骨骼已存在")
-            # 进入姿态模式
-            bpy.ops.object.mode_set(mode='POSE')
-            bpy.context.object.data.bones["手PT.L"].color.palette = 'THEME11'
-        # 处理右侧(R)骨骼
-        if "手PT.R" not in bpy.context.object.data.bones.keys():
-            # 编辑模式
-            bpy.ops.object.mode_set(mode='EDIT')
-            # 取消所有选择
-            bpy.ops.armature.select_all(action='DESELECT')
-            # 选择活动骨骼
-            bpy.ops.object.select_pattern(pattern="腕.R", extend=False)
-            armature = bpy.context.edit_object.data
-            bone = armature.edit_bones.get('腕.R')
-            bpy.context.edit_object.data.edit_bones.active = bone
-            # 挤出骨骼
-            bpy.ops.armature.extrude_move(ARMATURE_OT_extrude={"forked": False},
-                                          TRANSFORM_OT_translate={"value": (0, 0.15, 0), "orient_type": 'GLOBAL',
-                                                                  "orient_matrix": (
-                                                                      (1, 0, 0), (0, 1, 0), (0, 0, 1))})
-            # 获取活跃的对象
-            active_obj = bpy.context.active_object
-            # 获取骨架数据
-            armature_data = active_obj.data
-            # 获取编辑模式下的骨骼列表
-            edit_bones = armature_data.edit_bones
-            # 获取最后挤出的骨骼的索引
-            last_extruded_bone_index = len(edit_bones) - 1
-            # 获取最后挤出的骨骼的名称
-            last_extruded_bone_name = edit_bones[last_extruded_bone_index].name
-            print("新挤出的骨骼名称:", last_extruded_bone_name)
-            # 选择活动骨骼
-            bpy.ops.object.select_pattern(pattern=last_extruded_bone_name, extend=False)
-            armature = bpy.context.edit_object.data
-            bone = armature.edit_bones.get(last_extruded_bone_name)
-            bpy.context.edit_object.data.edit_bones.active = bone
-            # 清空父级
-            bpy.ops.armature.parent_clear(type='CLEAR')
-            # 改名称
-            bpy.context.active_bone.name = "手PT.R"
-            # 移动
-            bpy.ops.transform.translate(value=(0, +0.25, 0), orient_type='GLOBAL',
-                                        orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)))
-            # 进入姿态模式
-            bpy.ops.object.mode_set(mode='POSE')
-            bpy.context.object.data.bones["手PT.R"].color.palette = 'THEME11'
-            # 选择活动骨骼
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.object.select_pattern(pattern="ひじ.R", extend=False)
-            armature = bpy.context.edit_object.data
-            bone = armature.edit_bones.get('ひじ.R')
-            bpy.context.edit_object.data.edit_bones.active = bone
-            # 进入姿态模式
-            bpy.ops.object.mode_set(mode='POSE')
-            bpy.context.object.pose.bones["ひじ.R"].constraints["【IK】R"].pole_target = bpy.data.objects[
-                active_object_name]
-            bpy.context.object.pose.bones["ひじ.R"].constraints["【IK】R"].pole_subtarget = "手PT.R"
 
-            # 编辑模式
-            bpy.ops.object.mode_set(mode='EDIT')
-            # 取消所有选择
-            bpy.ops.armature.select_all(action='DESELECT')
-            # 骨骼名称列表
-            bone1_names = ['手PT.R', 'センター']
-            # 遍历骨骼名称列表进行选择
-            for bone_name in bone1_names:
-                bpy.ops.object.select_pattern(pattern=bone_name)
-            # 获取当前编辑的骨骼数据
-            armature = bpy.context.edit_object.data
-            active_bone = armature.edit_bones.get('センター')
-            # 设为活动骨骼
-            if active_bone:
-                bpy.context.edit_object.data.edit_bones.active = active_bone
-            # 认爸爸
-            bpy.ops.armature.parent_set(type='OFFSET')
-            # 取消所有选择
-            bpy.ops.armature.select_all(action='DESELECT')
+        self.report({'INFO'}, '正在重构此功能，敬请期待！')
+        mmd_arm = context.view_layer.objects.active
 
-            # 骨骼名称列表
-            bone1_names = ['手PT.L', 'センター']
-            # 遍历骨骼名称列表进行选择
-            for bone_name in bone1_names:
-                bpy.ops.object.select_pattern(pattern=bone_name)
-            # 获取当前编辑的骨骼数据
-            armature = bpy.context.edit_object.data
-            active_bone = armature.edit_bones.get('センター')
-            # 设为活动骨骼
-            if active_bone:
-                bpy.context.edit_object.data.edit_bones.active = active_bone
-            # 认爸爸
-            bpy.ops.armature.parent_set(type='OFFSET')
-            # 取消所有选择
-            bpy.ops.armature.select_all(action='DESELECT')
+        print(mmd_arm.data.bones.items())
 
-        else:
-            print("骨骼已存在")
-            # 进入姿态模式
-            bpy.ops.object.mode_set(mode='POSE')
-            bpy.context.object.data.bones["手PT.R"].color.palette = 'THEME11'
-
-        self.report({'INFO'}, '优化成功!')
-        # 切换回物体模式
-        bpy.ops.object.mode_set(mode='OBJECT')
 
         return {'FINISHED'}
 
@@ -1198,6 +563,30 @@ class mmrrigOperator(bpy.types.Operator):
             # 应用变换
             bpy.ops.pose.armature_apply(selected=False)
 
+        # 版本比较
+        def compare_version(version1, version2):
+            parts1 = []
+            parts2 = []
+            for part in re.split('[.-]', version1):
+                try:
+                    num = int(part)
+                except ValueError:
+                    num = 0
+                parts1.append(num)
+            for part in re.split('[.-]', version2):
+                try:
+                    num = int(part)
+                except ValueError:
+                    num = 0
+                parts2.append(num)
+            min_length = min(len(parts1), len(parts2))
+            for i in range(min_length):
+                if parts1[i] < parts2[i]:
+                    return True
+                elif parts1[i] > parts2[i]:
+                    return False
+            return len(parts1) < len(parts2)
+
         # 变换
         Move_location(mmd_arm,RIG)
         # 缩放
@@ -1389,9 +778,13 @@ class mmrrigOperator(bpy.types.Operator):
             else:
                 print(f"骨骼 {key} 或 {value} 不存在于骨架中")
 
-        Twist_bones = {'forearm.L':'手捩.L', 'forearm.R':'手捩.R', 'upper_arm.L':'腕捩.L', 'upper_arm.R':'腕捩.R'}
+        Wrist_twist = {'A':mmr.Left_lower_arm_twist, 'B':mmr.Right_lower_arm_twist, 'C':mmr.Left_upper_arm_twist, 'D':mmr.Right_upper_arm_twist}
 
-        for key, value in Twist_bones.items():
+        Twist_bones = [{'forearm.L':Wrist_twist['A'], 'forearm.R':Wrist_twist['B'], 'upper_arm.L':Wrist_twist['C'], 'upper_arm.R':Wrist_twist['D']},
+                       {'DEF-forearm.L.001':Wrist_twist['A'], 'DEF-forearm.R.001':Wrist_twist['B'], 'DEF-upper_arm.L.001':Wrist_twist['C'], 'DEF-upper_arm.R.001':Wrist_twist['D']}]
+
+        for key, value in Twist_bones[0].items():
+
             # 进入RIG的编辑模式
             bpy.context.view_layer.objects.active = RIG
             bpy.ops.object.mode_set(mode='EDIT')
@@ -1404,8 +797,12 @@ class mmrrigOperator(bpy.types.Operator):
 
             if value in mmd_edit_bones:
                 # 获取骨骼对象
-                mmd_bone = mmd_edit_bones[value]
-                RIG_bone = RIG_edit_bones[key]
+                mmd_bone = mmd_edit_bones.get(value)
+                RIG_bone = RIG_edit_bones.get(key)
+
+                if not mmd_bone or not RIG_bone:
+                    continue
+
                 # 新建骨骼
                 new_bone = RIG_edit_bones.new(name=value + '_parent')
                 new_bone.head = mmd_bone.head  # 复制头位置
@@ -1431,8 +828,6 @@ class mmrrigOperator(bpy.types.Operator):
 
         heel_world_z = (heel_L_world_z + heel_R_world_z) / 2
 
-        print('heel_world_z: ', heel_world_z)
-
         # 角度
         v = mmr.Bend_angle_leg
         v1 = mmr.Bend_angle_arm
@@ -1449,6 +844,8 @@ class mmrrigOperator(bpy.types.Operator):
 
         # 弯曲腿部骨骼
         if mmr.Bend_the_leg_bones:
+
+            print('heel_world_z: ', heel_world_z)
 
             if Calculate_intersection_angle(RIG, 'thigh.L', 'shin.L') > 165:
                 rotate_bone_x(RIG, 'thigh.L',angle_deg=-v)
@@ -1555,16 +952,14 @@ class mmrrigOperator(bpy.types.Operator):
             s_bone.parent = e_bone
             # 加入集合
             bpy.ops.object.mode_set(mode='POSE')
-            data_bones = rigify.data.bones
+            data_bones = rigify.pose.bones
             t_bone = data_bones.get('ORG-' + k + '_parent')
             t_bone.select = True # 活动骨骼
             bpy.ops.armature.collection_assign(name='ORG')
             bpy.ops.pose.select_all(action='DESELECT')
 
-        Twist_bones = {'DEF-forearm.L.001':'手捩.L', 'DEF-forearm.R.001':'手捩.R', 'DEF-upper_arm.L.001':'腕捩.L', 'DEF-upper_arm.R.001':'腕捩.R'}
-
         # 捩骨约束
-        for key, value in Twist_bones.items():
+        for key, value in Twist_bones[-1].items():
             value1 = 'ORG-' + value + '_parent'
             # 进入编辑模式
             bpy.ops.object.mode_set(mode='EDIT')
@@ -1691,7 +1086,7 @@ class mmrrigOperator(bpy.types.Operator):
         t_bone.color.palette = 'THEME09'
         t_bone.custom_shape = bpy.data.objects["WGT-RIG-" + RIG.name + "_root"]
         # 加入集合
-        data_bones = rigify.data.bones
+        data_bones = rigify.pose.bones
         t_bone = data_bones.get('torso_root')
         t_bone.select = True
         bpy.ops.armature.collection_assign(name='Torso')
@@ -1715,10 +1110,18 @@ class mmrrigOperator(bpy.types.Operator):
 
         not_bone = ['ear.L', 'ear.R', 'jaw_master', 'teeth.B', 'tongue_master', 'teeth.T', 'nose_master']
 
-        # 隐藏骨骼
-        for n in not_bone:
-            bone = rigify.data.bones.get(n)
-            bone.hide = True
+        blender_version = bpy.app.version_string
+
+        if compare_version(blender_version, "4.9.9"):
+            # 隐藏骨骼
+            for n in not_bone:
+                bone = rigify.data.bones.get(n)
+                bone.hide = True
+        else:
+            # 隐藏骨骼
+            for n in not_bone:
+                bone = rigify.pose.bones.get(n)
+                bone.hide = True
 
         ik_stretch = ["upper_arm_parent.L", "upper_arm_parent.R", "thigh_parent.R","thigh_parent.L" ]
 
@@ -1816,7 +1219,7 @@ class mmrexportvmdactionsOperator(bpy.types.Operator):
         for bone in armature.pose.bones:
             for constraint in bone.constraints:
                 if constraint.name == "MMR_复制变换":
-                    bone.bone.select = True
+                    bone.select = True
                     break
 
         start = bpy.context.scene.frame_start
@@ -1825,5 +1228,377 @@ class mmrexportvmdactionsOperator(bpy.types.Operator):
         bpy.ops.nla.bake(frame_start=start, frame_end=end, visual_keying=True, bake_types={'POSE'})
 
         bpy.ops.mmd_tools.export_vmd("INVOKE_DEFAULT")
+
+        return {'FINISHED'}
+
+class MahyPdtOperator(bpy.types.Operator):
+    bl_idname = "object.mdtsu_ops"
+    bl_label = "Add Mouth Panel"
+    # 确保在操作之前备份数据，用户撤销操作时可以恢复
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        tyu = None
+        # 获取当前活动的物体
+        active_object = context.view_layer.objects.active
+
+        mmr = context.object.mmr
+
+        # 自定义面板预设
+        panel_preset = {'bone':mmr.panel_preset_bone, 'A':mmr.panel_preset_A, 'I':mmr.panel_preset_I, 'U':mmr.panel_preset_U, 'E':mmr.panel_preset_E, 'O':mmr.panel_preset_O}
+        # 骨骼约束切换自定义
+        bone_air = mmr.panel_preset
+
+        # 检查是否有活动物体，如果存在则打印名称
+        if active_object:
+            print("当前活动的物体：", active_object.name)
+            Model = active_object.name
+
+            # 获取所有选中的物体
+            selected_objects = bpy.context.selected_objects
+
+            # 验证是否至少有两个物体被选中：一个活动的和至少一个非活动的
+            if len(selected_objects) > 1:
+                # 打印除了活动物体之外的所有选中物体的名称
+                for obj1 in selected_objects:
+                    if obj1 != active_object:
+                        tyu = obj1.name
+                        print("不活动物体的名称：", tyu)
+            else:
+                print("需要选中模型和骨骼！")
+                self.report({'WARNING'}, f"需要选中模型和骨骼！")
+                return {'FINISHED'}
+
+            # 检查是否至少有两个物体被选中
+            if len(selected_objects) != 2:
+                print("只能选中模型和骨骼！")
+                self.report({'WARNING'}, "只能选中模型和骨骼！")
+                return {'FINISHED'}
+
+            # 确保一个是网格模型，另一个是骨骼
+            model_and_armature_selected = False
+            for obj in selected_objects:
+                if obj.type == 'MESH':
+                    model = obj
+                elif obj.type == 'ARMATURE':
+                    armature = obj
+            if 'model' in locals() and 'armature' in locals():
+                model_and_armature_selected = True
+
+            if not model_and_armature_selected:
+                print("只能选中模型和骨骼！")
+                self.report({'WARNING'}, "只能选中模型和骨骼！")
+                return {'FINISHED'}
+        else:
+            print("没有活动物体被选中！")
+            self.report({'WARNING'}, f"没有活动物体被选中！")
+            return {'FINISHED'}
+
+        def check_collection_exists(name, collections=None):
+            if collections is None:
+                collections = bpy.data.collections
+            for coll in collections:
+                if coll.name == name:
+                    return True
+                # 递归检查子集合
+                if check_collection_exists(name, coll.children):
+                    return True
+            return False
+
+        # 调用函数检查
+        exists = check_collection_exists("Mouth_Rigvitfy")
+        print("集合存在" if exists else "集合不存在")
+
+        if exists == False:
+            # 获取目录路径
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            print(f"当前目录路径：{current_dir}")
+            # 路径拼接
+            file_path = os.path.join(current_dir, "Mouth_Rig.blend")
+            # 标准化路径（处理双斜杠等问题）
+            normalized_path = os.path.normpath(file_path)
+            print(f"blend文件路径：{normalized_path}")
+
+            # 配置目标集合名称
+            target_collection = "Mouth_Rigtion"
+
+            # 构造Blender内部路径格式
+            internal_dir = str(normalized_path) + "/Collection/"
+            internal_path = str(normalized_path) + "/Collection/" + target_collection
+
+            # 执行追加操作
+            bpy.ops.wm.append(
+                filepath=internal_path,
+                directory=internal_dir,
+                filename=target_collection,
+            )
+
+            def delete_collection_and_move_to_parent(collection_name):
+                target_coll = bpy.data.collections.get(collection_name)
+                if not target_coll:
+                    print(f"集合 '{collection_name}' 不存在")
+                    return
+                # 查找目标集合的所有父集合
+                parent_collections = []
+                for coll in bpy.data.collections:
+                    if target_coll.name in coll.children:
+                        parent_collections.append(coll)
+                # 如果目标集合没有父集合，默认转移到场景主集合
+                if not parent_collections:
+                    parent_collections = [bpy.context.scene.collection]
+                # 将对象和子集合转移到每个父集合
+                for parent_coll in parent_collections:
+                    # 转移对象
+                    for obj in target_coll.objects[:]:  # 遍历副本避免修改问题
+                        if obj.name not in parent_coll.objects:
+                            parent_coll.objects.link(obj)
+                        target_coll.objects.unlink(obj)
+                    # 转移子集合
+                    for child_coll in target_coll.children[:]:
+                        if child_coll.name not in parent_coll.children:
+                            parent_coll.children.link(child_coll)
+                        target_coll.children.unlink(child_coll)
+                # 解除目标集合的所有父级引用
+                for coll in bpy.data.collections:
+                    if target_coll.name in coll.children:
+                        coll.children.unlink(target_coll)
+                # 删除目标集合
+                bpy.data.collections.remove(target_coll)
+
+            # 执行操作
+            delete_collection_and_move_to_parent('Mouth_Rigtion')
+
+            # 检查集合是否存在
+            if "Mouth_Rigvitfy" not in bpy.data.collections:
+                print("集合不存在")
+            else:
+                # 获取当前视图层
+                view_layer = bpy.context.view_layer
+
+                # 递归遍历 LayerCollection 树
+                def exclude_collection(layer_coll, target_name):
+                    if layer_coll.name == target_name:
+                        layer_coll.exclude = True
+                        return True
+                    for child in layer_coll.children:
+                        if exclude_collection(child, target_name):
+                            return True
+                    return False
+
+                # 调用函数排除集合
+                if exclude_collection(view_layer.layer_collection, "Mouth_Rigvitfy"):
+                    print("集合已排除")
+                else:
+                    print("集合未找到")
+        else:
+            # 获取目录路径
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            print(f"当前目录路径：{current_dir}")
+            # 路径拼接
+            file_path = os.path.join(current_dir, "Mouth_Rig.blend")
+            # 标准化路径（处理双斜杠等问题）
+            normalized_path = os.path.normpath(file_path)
+            print(f"blend文件路径：{normalized_path}")
+
+            # 设置追加参数
+            filepath = os.path.join(normalized_path, "Object", "Mouth_Rig_001")
+            directory = os.path.join(normalized_path, "Object")
+            filename = "Mouth_Rig_001"
+
+            # 执行追加操作
+            bpy.ops.wm.append(
+                filepath=filepath,
+                directory=directory,
+                filename=filename,
+            )
+            bpy.data.objects.get("Mouth_Rig_001").name = "Mouth_Rig"
+
+        def Add_a_lip_panel_driver(A, B, C, D):
+            # 获取当前选中的物体
+            obj = bpy.context.object
+            if not obj or obj.type != 'MESH':
+                raise Exception("请选择一个网格物体")
+
+            # 检查形态键
+            if not obj.data.shape_keys:
+                raise Exception("该物体没有形态键")
+            key_blocks = obj.data.shape_keys.key_blocks
+            kb = key_blocks.get(A)
+            if not kb:
+                raise Exception("找不到形态键：",A)
+
+            # 获取驱动骨架
+            arm = bpy.data.objects.get(B)
+            if not arm or arm.type != 'ARMATURE':
+                raise Exception("骨架不存在")
+
+            # 验证目标骨骼
+            if "qws_F2" not in arm.pose.bones:
+                raise Exception("骨架中不存在骨骼'qws_F2'")
+
+            # 添加驱动器
+            fcurve = kb.driver_add("value")
+            driver = fcurve.driver
+            driver.type = 'SCRIPTED'  # 明确设置驱动类型
+
+            # 清除旧变量
+            while driver.variables:
+                driver.variables.remove(driver.variables[0])
+
+            # 创建新变量
+            var = driver.variables.new()
+            var.name = "var"
+            var.type = 'TRANSFORMS'
+
+            # 配置变量目标
+            target = var.targets[0]
+            target.id = arm
+            if A != panel_preset['A']:
+                target.bone_target = "qws_F2"
+            else:
+                target.bone_target = "qws_F3"
+            target.transform_type = C
+            target.transform_space = 'LOCAL_SPACE'  # 局部空间
+
+            # 设置驱动表达式
+            driver.expression = D
+
+            print("形态键驱动器已成功添加")
+
+            # 确保存在F曲线
+            if not fcurve.keyframe_points:
+                print("警告：F曲线不存在，正在创建关键帧")
+
+            # 清除旧关键帧（避免重复）
+            fcurve.keyframe_points.clear()
+
+            # 添加关键帧 (X位置对应变量值，Y位置对应形态键值)
+            fcurve.keyframe_points.insert(0.0, 0.0)  # 输入0 → 输出0
+            if A != panel_preset['A']:
+                fcurve.keyframe_points.insert(0.106, 1.0)  # 输入0.106 → 输出1
+            else:
+                fcurve.keyframe_points.insert(0.192, 1.0)  # 输入0.192 → 输出1
+
+            # 设置插值模式为线性
+            for kp in fcurve.keyframe_points:
+                kp.interpolation = 'LINEAR'
+
+            # 强制更新曲线数据
+            fcurve.update()
+
+            print("关键帧添加完成")
+
+            # 确保存在F曲线
+            if not hasattr(fcurve, 'modifiers'):
+                raise Exception("当前F曲线不支持修改器")
+
+            # 删除所有修改器
+            if fcurve.modifiers:
+                print(f"正在移除 {len(fcurve.modifiers)} 个修改器...")
+                # 反向遍历避免索引错位
+                for i in range(len(fcurve.modifiers) - 1, -1, -1):
+                    fcurve.modifiers.remove(fcurve.modifiers[i])
+
+                fcurve.update()
+                print("所有修改器已清除")
+            else:
+                print("该F曲线没有需要删除的修改器")
+
+            # 验证结果
+            print("剩余修改器数量:", len(fcurve.modifiers))
+
+            # 设置外插模式
+            fcurve.extrapolation = 'LINEAR'  # 设置为线性外插
+
+            # 可选：验证设置结果
+            print("当前外插模式：", fcurve.extrapolation)
+
+            # 强制更新曲线数据
+            fcurve.update()
+
+            print("外插模式已设置为线性")
+
+        Add_a_lip_panel_driver(panel_preset['U'],"Mouth_Rig",'LOC_X',"-var + 0.0")
+        Add_a_lip_panel_driver(panel_preset['I'],"Mouth_Rig",'LOC_X',"var + 0.0")
+        Add_a_lip_panel_driver(panel_preset['O'],"Mouth_Rig",'LOC_Z',"-var + 0.0")
+        Add_a_lip_panel_driver(panel_preset['E'],"Mouth_Rig",'LOC_Z',"var + 0.0")
+        Add_a_lip_panel_driver(panel_preset['A'],"Mouth_Rig",'LOC_X',"var + 0.0")
+
+        # 获取需要添加约束的物体和目标物体
+        obj = bpy.data.objects['Mouth_Rig']  # 被施加约束的物体
+        target_obj = bpy.data.objects[tyu]  # 目标物体
+
+        # 添加复制变换约束
+        constraint = obj.constraints.new(type='COPY_TRANSFORMS')
+        constraint.target = target_obj  # 设置目标物体
+        constraint.mix_mode = 'REPLACE'
+        constraint.target_space = 'WORLD'
+        constraint.owner_space = 'WORLD'
+
+        # 取消所有物体的选中状态
+        bpy.ops.object.select_all(action='DESELECT')
+
+        # 通过名称获取物体
+        obj1 = bpy.data.objects.get(tyu)
+        obj2 = bpy.data.objects.get('Mouth_Rig')
+
+        # 检查物体是否存在
+        if not obj1:
+            raise Exception("未找到名称为'1'的物体")
+        if not obj2:
+            raise Exception("未找到名称为'2'的物体")
+
+        # 选中两个物体
+        obj1.select_set(True)
+        obj2.select_set(True)
+
+        # 将物体1设为激活状态
+        bpy.context.view_layer.objects.active = obj1
+        # 合并骨架
+        bpy.ops.object.join()
+        # 姿态模式
+        bpy.ops.object.mode_set(mode="POSE")
+        # 获取目标骨骼
+        target_bone = bpy.context.active_object.pose.bones.get("qws_F1")
+        subtarget_bone = bpy.context.active_object.pose.bones.get("頭")
+        if not target_bone:
+            raise KeyError("未找到名为 qws_F1 的骨骼")
+
+        # 添加子级约束
+        constraint = target_bone.constraints.new(type='CHILD_OF')
+        constraint.name = "MMD_Emoji_Manager"
+
+        # 设置约束目标
+        armature = bpy.context.active_object
+        constraint.target = bpy.data.objects.get(tyu)
+
+        if bone_air:
+            constraint.subtarget = panel_preset['bone']
+        else:
+            if subtarget_bone:
+                constraint.subtarget = "頭"
+            else:
+                constraint.subtarget = "head"
+
+        bpy.ops.pose.select_all(action='DESELECT')
+        # 选中并激活骨骼
+        bpy.ops.pose.select_all(action='DESELECT')  # 取消所有骨骼选择
+        armature.data.bones.active = target_bone.bone  # 设置活动骨骼
+        target_bone.select = True  # 选中骨骼
+        # 反向
+        bpy.ops.constraint.childof_set_inverse(constraint="MMD_Emoji_Manager", owner='BONE')
+        bpy.ops.constraint.childof_clear_inverse(constraint="MMD_Emoji_Manager", owner='BONE')
+        # 设置变换
+        target_bone.rotation_mode = 'XYZ'
+        target_bone.rotation_euler[0] = -1.5708 # X旋转
+        target_bone.location[1] = -0.05 # Y位置
+        target_bone.location[0] = 0.25 # X位置
+        target_bone.scale[0] = 0.6
+        target_bone.scale[1] = 0.6
+        target_bone.scale[2] = 0.6
+        # 骨骼形状
+        target_bone.custom_shape = bpy.data.objects["rew_G2"]
+        bpy.context.active_object.pose.bones.get("qws_F3").custom_shape = bpy.data.objects["rew_G3"]
+        bpy.context.active_object.pose.bones.get("qws_F2").custom_shape = bpy.data.objects["rew_G1"]
 
         return {'FINISHED'}

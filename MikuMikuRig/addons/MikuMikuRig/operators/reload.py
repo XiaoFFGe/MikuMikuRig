@@ -204,7 +204,7 @@ class MMR_PT_JsonEditor(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = 'UI'
     bl_category = "MMR"
-    bl_parent_id = "SCENE_PT_MMR_Rig_A"
+    bl_parent_id = "SCENE_PT_MMR_Rig_0"
 
     def draw(self, context):
         layout = self.layout
