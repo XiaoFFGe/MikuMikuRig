@@ -835,7 +835,13 @@ class Remove_physics(bpy.types.Operator):
                 # 指定的骨骼名称
                 bone_name = rigidbody.mmr_bone.bone
 
+            # 检查bone_name是否为空字符串
+            if not bone_name:
+                print(f"警告：骨骼名称为空，跳过恢复矩阵")
+                return
+
             if rigidbody.mmr_bone.mmr_type == 'RIGIDBODY':
+
                 # 刚体全局矩阵
                 rigidbody_matrix_world = rigidbody.matrix_world
                 # 获取姿态骨骼
