@@ -609,6 +609,11 @@ class Assign_Rigidbody(bpy.types.Operator):
             # 获取骨骼
             bone = armature.data.bones.get(rigidbody.mmr_bone.bone)
 
+            # 检查骨骼是否存在
+            if pose_bone is None or bone is None:
+                print(f"警告：找不到骨骼 '{rigidbody.mmr_bone.bone}'，跳过关节装配")
+                return
+
             # 获取姿态骨骼矩阵
             pose_bone_matrix = pose_bone.matrix
             # 计算姿态骨骼的全局矩阵
@@ -835,6 +840,12 @@ class Remove_physics(bpy.types.Operator):
                 rigidbody_matrix_world = rigidbody.matrix_world
                 # 获取姿态骨骼
                 pose_bone = armature.pose.bones[bone_name]
+
+                # 检查姿态骨骼是否存在
+                if pose_bone is None:
+                    print(f"警告：找不到姿态骨骼 '{bone_name}'，跳过关节装配")
+                    return
+
                 # 获取姿态骨骼矩阵
                 pose_bone_matrix = pose_bone.matrix
                 # 计算姿态骨骼的全局矩阵
