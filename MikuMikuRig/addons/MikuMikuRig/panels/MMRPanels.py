@@ -1,15 +1,69 @@
 import bpy
+from numpy.f2py.capi_maps import depargs
 
 from MikuMikuRig.addons.MikuMikuRig.operators.MMRpresets import mmrmakepresetsOperator, mmrdesignatedOperator
 from MikuMikuRig.addons.MikuMikuRig.operators.Physics import Add_Damping_Tracking, Remove_Damping_Tracking, Assign_Rigidbody, \
-    Assign_armature_rigidbody, Open_MMD_Physics, Show_Rigidbody, Select_Collision_Group, Update_World, Select_By_Type
-from MikuMikuRig.addons.MikuMikuRig.operators.RIG import mmrexportvmdactionsOperator, MahyPdtOperator
+    Show_Rigidbody, Select_Collision_Group, Update_World, Select_By_Type, \
+    mmdrigidbody_to_mmrrigidbody, Remove_physics, Show_Joint, Select_Collision_Group_For_Joint, Select_By_Type_For_Joint
+from MikuMikuRig.addons.MikuMikuRig.operators.RIG import mmrexportvmdactionsOperator, MahyPdtOperator, \
+    MMR_OT_Batch_Adjust_Shape_Key, MMR_OT_Insert_Keyframe, MMR_OT_Unselect_All_Key, \
+    MMR_OT_Select_All_Key, MMR_OT_Select_Keyframe_Key
 from MikuMikuRig.addons.MikuMikuRig.operators.RIG import mmrrigOperator
 from MikuMikuRig.addons.MikuMikuRig.operators.RIG import polartargetOperator
+from MikuMikuRig.addons.MikuMikuRig.operators.mmd_rig_physics import MMD_RIG_PHYSICS_BUILD
 from MikuMikuRig.addons.MikuMikuRig.operators.redirect import MMR_redirect, MMR_Import_VMD
 from MikuMikuRig.addons.MikuMikuRig.operators.reload import MMR_OT_OpenPresetFolder
 from MikuMikuRig.common.i18n.i18n import i18n
 
+# UL类
+class MMR_UL_key(bpy.types.UIList):
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+
+        obj = context.active_object
+
+        if item.bool_value:
+            layout.prop(item, "select", text="")
+        layout.label(text=item.name)
+        if item.bool_value:
+            if not obj.mmr.direct_operation_shape_key:
+                layout.prop(item, "value", text="")
+            else:
+                meshkey = item.meshkey
+                if meshkey:
+                    layout.prop(meshkey.key_blocks[item.meshkey_index], "value", text="")
+
+# 在条目加个面板
+class MMR_key_Options(bpy.types.Panel):
+
+    bl_label = "MMR Key Options"
+    bl_idname = "SCENE_PT_MMR_Key_Options_0"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    # name of the side panel
+    bl_category = "Item"
+
+    def draw(self, context: bpy.types.Context):
+        layout = self.layout
+
+        obj = context.active_object
+        if obj.mmr:
+            # UL
+            layout.template_list("MMR_UL_key", "", obj, "mmr_key", obj.mmr, "key_idx")
+
+            row = layout.row()
+            row.operator(MMR_OT_Batch_Adjust_Shape_Key.bl_idname, icon="MODIFIER", text="",depress=False if obj.mmr.register_handler else True)
+            row.prop(obj.mmr, "insert_keyframe", text='',icon='ZOOM_ALL')
+            row.operator(MMR_OT_Unselect_All_Key.bl_idname, icon="CANCEL", text="")
+            row.operator(MMR_OT_Select_All_Key.bl_idname, icon="CHECKBOX_HLT", text="")
+            row.operator(MMR_OT_Select_Keyframe_Key.bl_idname, icon="AUTOMERGE_ON", text="")
+
+            row = layout.row()
+            row.prop(obj.mmr, "Batch_adjust_shape_key", text=i18n('Batch Adjustment'))
+            row.operator(MMR_OT_Insert_Keyframe.bl_idname, icon="LAYER_ACTIVE", text="")
+            row.prop(obj.mmr, "use_keyframe_insert_auto", text='',icon='KEYFRAME')
+
+# 控制器选项面板
 class MMD_Rig_Opt(bpy.types.Panel):
     bl_label = "Controller options"
     bl_idname = "SCENE_PT_MMR_Rig_0"
@@ -40,7 +94,7 @@ class MMD_Rig_Opt(bpy.types.Panel):
                 layout.scale_y = 1.2  # 这将使按钮的垂直尺寸加倍
                 layout.operator(mmrrigOperator.bl_idname, text="Build a controller",icon="OUTLINER_DATA_ARMATURE")
 
-                layout.operator(MahyPdtOperator.bl_idname, text="Add Mouth Panel",icon="MODIFIER")
+                layout.operator(MahyPdtOperator.bl_idname, icon="MODIFIER")
 
                 layout.prop(mmr, "extras_enabled", text=i18n("Extras"), toggle=True,icon="PREFERENCES")
 
@@ -100,6 +154,7 @@ class MMD_Rig_Opt(bpy.types.Panel):
                         box.prop(mmr, "panel_preset_U", text=i18n("U"))
                         box.prop(mmr, "panel_preset_E", text=i18n("E"))
                         box.prop(mmr, "panel_preset_O", text=i18n("O"))
+                    layout.prop(mmr, "direct_operation_shape_key", text=i18n("Direct operation shape key"))
 
                     layout.prop(mmr, "Preset_editor", text=i18n("MMR Preset Editor"))
             else:
@@ -137,30 +192,30 @@ class MMD_Rig_Opt_Polar(bpy.types.Panel):
     def poll(cls, context: bpy.types.Context):
         return context.active_object is not None
 
-class MMD_Arm_Opt(bpy.types.Panel):
-    bl_label = "MMD tool"
-    bl_idname = "SCENE_PT_MMR_Rig_2"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = 'UI'
-    # name of the side panel
-    bl_category = "MMR"
-    bl_parent_id = "SCENE_PT_MMR_Rig_0"
-
-    def draw(self, context: bpy.types.Context):
-
-        mmr = context.object.mmr
-
-        # 从上往下排列
-        layout = self.layout
-
-        # 增加按钮大小并添加图标
-        row = layout.row()
-        row.scale_y = 1.2  # 这将使按钮的垂直尺寸加倍
-        row.operator(polartargetOperator.bl_idname, text="Optimization MMD Armature", icon='BONE_DATA')
-
-    @classmethod
-    def poll(cls, context: bpy.types.Context):
-        return context.active_object is not None
+# class MMD_Arm_Opt(bpy.types.Panel):
+#     bl_label = "MMD tool"
+#     bl_idname = "SCENE_PT_MMR_Rig_2"
+#     bl_space_type = "VIEW_3D"
+#     bl_region_type = 'UI'
+#     # name of the side panel
+#     bl_category = "MMR"
+#     bl_parent_id = "SCENE_PT_MMR_Rig_0"
+#
+#     def draw(self, context: bpy.types.Context):
+#
+#         mmr = context.object.mmr
+#
+#         # 从上往下排列
+#         layout = self.layout
+#
+#         # 增加按钮大小并添加图标
+#         row = layout.row()
+#         row.scale_y = 1.2  # 这将使按钮的垂直尺寸加倍
+#         row.operator(polartargetOperator.bl_idname, text="Optimization MMD Armature", icon='BONE_DATA')
+#
+#     @classmethod
+#     def poll(cls, context: bpy.types.Context):
+#         return context.active_object is not None
 
 # 物理面板
 class Physics_Panel(bpy.types.Panel):
@@ -188,8 +243,6 @@ class Physics_Panel(bpy.types.Panel):
         row.operator(Remove_Damping_Tracking.bl_idname, text="", icon='TRASH')
 
         layout.separator()
-        layout.label(text=i18n("MMD Rigidbody"))
-
 
         obj = context.active_object
 
@@ -225,6 +278,10 @@ class Physics_Panel(bpy.types.Panel):
             row.prop(point_cache, "frame_start")
             row.prop(point_cache, "frame_end")
 
+            layout.use_property_split = False
+
+            layout.prop(rbw, "enabled", text=i18n('Global Rigidbody physical'))
+
             row = layout.row(align=True)
             row.label(text="Rigid Body Physics:", icon="PHYSICS")
             row.operator(Update_World.bl_idname, text="Update World", icon="ERROR")
@@ -238,42 +295,96 @@ class Physics_Panel(bpy.types.Panel):
         layout.use_property_split = False
 
         row = layout.row()
+        row.label(text=i18n("MMD Rigidbody"))
+        row.prop(context.scene.mmr, "mmd_rigid_panel_bool", text=i18n("Hide MMD Rigidbody"))
 
-        if mmr.physics_bool:
-            row.operator(Open_MMD_Physics.bl_idname, text="Physics", icon="PHYSICS", depress=True)
-        else:
-            row.operator(Open_MMD_Physics.bl_idname, text="Physics", icon="PHYSICS", depress=False)
+        row = layout.row(align=True)
 
+        row.operator(MMD_RIG_PHYSICS_BUILD.bl_idname, text="Physics", icon="PHYSICS")
         row.operator(Show_Rigidbody.bl_idname, text="Show Rigidbody", icon="RIGID_BODY")
+        row.operator(Show_Joint.bl_idname, text="Show Joint", icon="RIGID_BODY_CONSTRAINT")
 
-        if obj is not None and obj.mmd_type == "RIGID_BODY":
+        if not context.scene.mmr.mmd_rigid_panel_bool:
+            if obj is not None and obj.mmd_type == "RIGID_BODY":
 
-            c = layout.column()
-            c.prop(obj.mmd_rigid, "name_j")
-            c.prop(obj.mmd_rigid, "name_e")
+                c = layout.column()
+                c.prop(obj.mmd_rigid, "name_j")
+                c.prop(obj.mmd_rigid, "name_e")
 
-            c = layout.column(align=True)
-            row = c.row(align=True)
-            row.prop(obj.mmd_rigid, "type", expand=True)
+                c = layout.column(align=True)
+                row = c.row(align=True)
+                row.prop(obj.mmd_rigid, "type", expand=True)
 
-            row = c.row(align=True)
-            row.prop(obj.mmd_rigid, "bone", icon="BONE_DATA", text="")
+                row = c.row(align=True)
+                row.prop(obj.mmd_rigid, "bone", icon="BONE_DATA", text="")
 
-            c = layout.column(align=True)
-            c.enabled = obj.mode == "OBJECT"
-            c.row(align=True).prop(obj.mmd_rigid, "shape", expand=True)
+                c = layout.column(align=True)
+                c.enabled = obj.mode == "OBJECT"
+                c.row(align=True).prop(obj.mmd_rigid, "shape", expand=True)
 
-            col = c.column(align=True)
-            for i, name in enumerate(self.__RIGID_SIZE_MAP[obj.mmd_rigid.shape]):
-                col.prop(obj.mmd_rigid, "size", text=name, index=i)
+                col = c.column(align=True)
+                for i, name in enumerate(self.__RIGID_SIZE_MAP[obj.mmd_rigid.shape]):
+                    col.prop(obj.mmd_rigid, "size", text=name, index=i)
 
-            row = c.row(align=True)
-            c = row.column()
-            c.prop(obj.rigid_body, "mass")
-            c.prop(obj.mmd_rigid, "collision_group_number")
-            c = row.column()
-            c.prop(obj.rigid_body, "restitution")
-            c.prop(obj.rigid_body, "friction")
+                row = c.row(align=True)
+                c = row.column()
+                c.prop(obj.rigid_body, "mass")
+                c.prop(obj.mmd_rigid, "collision_group_number")
+                c = row.column()
+                c.prop(obj.rigid_body, "restitution")
+                c.prop(obj.rigid_body, "friction")
+
+                c = layout.column()
+                col = c.column(align=True)
+                col.label(text="Collision Group Mask:")
+                row = col.row(align=True)
+                for i in range(8):
+                    row.prop(obj.mmd_rigid, "collision_group_mask", index=i, text=str(i), toggle=True)
+                row = col.row(align=True)
+                for i in range(8, 16):
+                    row.prop(obj.mmd_rigid, "collision_group_mask", index=i, text=str(i), toggle=True)
+
+                c = layout.column()
+                c.label(text="Damping")
+                row = c.row()
+                row.prop(obj.rigid_body, "linear_damping")
+                row.prop(obj.rigid_body, "angular_damping")
+
+        row = layout.row()
+        # 选择碰撞组
+        row.operator(Select_Collision_Group.bl_idname)
+        row.operator(Select_By_Type.bl_idname)
+
+        layout.label(text=i18n("MMR Rigidbody"))
+
+        row = layout.row()
+        # MMR刚体
+        row.operator(Assign_Rigidbody.bl_idname)
+        # 解除物理
+        row.operator(Remove_physics.bl_idname)
+        # MMD刚体转换MMR刚体
+        layout.operator(mmdrigidbody_to_mmrrigidbody.bl_idname)
+
+        mmr_bone = context.active_object.mmr_bone
+
+        if mmr_bone.panel_bool:
+
+            mmr_bone = context.active_object.mmr_bone
+
+            row = layout.row(align=True)
+            row.prop(obj.rigid_body, "mass")
+            row.prop(obj.rigid_body, "restitution")
+
+            row = layout.row(align=True)
+            row.prop(mmr_bone, "collision_group_index", text="Collision Group")
+            row.prop(obj.rigid_body, "friction")
+
+            col = layout.column(align=True)
+            row = col.row(align=True)
+            row.prop(mmr_bone, "rigidbody_type", text="Rigidbody Type", expand = True)
+            row = col.row(align=True)
+            row.prop(mmr_bone, "bone", icon="BONE_DATA")
+
 
             col = layout.column(align=True)
             col.label(text=i18n("collision collections:"))
@@ -284,15 +395,19 @@ class Physics_Panel(bpy.types.Panel):
             for i in range(10, 20):
                 c.prop(obj.rigid_body, "collision_collections", index=i, text=str(i), toggle=True)
 
-            c = layout.column()
-            col = c.column(align=True)
-            col.label(text="Collision Group Mask:")
+            # 碰撞组掩码部分
+            col = layout.column(align=True)
+            col.label(text=i18n("Collision Group Mask:"))
+
+            # 第一行显示 0-7 组
             row = col.row(align=True)
-            for i in range(8):
-                row.prop(obj.mmd_rigid, "collision_group_mask", index=i, text=str(i), toggle=True)
+            for i in range(0, 8):
+                row.prop(mmr_bone, "collision_group_mask", index=i, text=str(i), toggle=True)
+
+            # 第二行显示 8-15 组
             row = col.row(align=True)
             for i in range(8, 16):
-                row.prop(obj.mmd_rigid, "collision_group_mask", index=i, text=str(i), toggle=True)
+                row.prop(mmr_bone, "collision_group_mask", index=i, text=str(i), toggle=True)
 
             c = layout.column()
             c.label(text="Damping")
@@ -300,43 +415,106 @@ class Physics_Panel(bpy.types.Panel):
             row.prop(obj.rigid_body, "linear_damping")
             row.prop(obj.rigid_body, "angular_damping")
 
-            row = layout.row()
-            # 选择碰撞组
-            row.operator(Select_Collision_Group.bl_idname)
-            row.operator(Select_By_Type.bl_idname)
+        obj = context.active_object
+        rbc = obj.rigid_body_constraint
+        constraint = obj.rigid_body_constraint
 
-        if context.active_pose_bone:
-            # 废弃功能
-            layout.prop(mmr, "Discarded_function", text=i18n("Discarded function"))
-            if mmr.Discarded_function:
+        if constraint:
+            if constraint.type == "GENERIC_SPRING":
+                layout.label(text=i18n("Rigidbody Constraint"))
 
-                mmr_bone = context.active_pose_bone.mmr_bone
+                c = layout.column()
+                c.prop(rbc, "object1")
+                c.prop(rbc, "object2")
+
+                layout.label(text=i18n("Limit(Location)"))
+                row = layout.row(align=True)
+                col = row.column(align=True)
+                row = col.row(align=True)
+                row.prop(rbc, "limit_lin_x_lower")
+                row.prop(rbc, "limit_lin_x_upper")
+                row = col.row(align=True)
+                row.prop(rbc, "limit_lin_y_lower")
+                row.prop(rbc, "limit_lin_y_upper")
+                row = col.row(align=True)
+                row.prop(rbc, "limit_lin_z_lower")
+                row.prop(rbc, "limit_lin_z_upper")
+
+                layout.label(text=i18n("Limit(Angle)"))
+                row = layout.row(align=True)
+                col = row.column(align=True)
+                row = col.row(align=True)
+                row.prop(rbc, "limit_ang_x_lower")
+                row.prop(rbc, "limit_ang_x_upper")
+                row = col.row(align=True)
+                row.prop(rbc, "limit_ang_y_lower")
+                row.prop(rbc, "limit_ang_y_upper")
+                row = col.row(align=True)
+                row.prop(rbc, "limit_ang_z_lower")
+                row.prop(rbc, "limit_ang_z_upper")
+
+                ob = context.object
+                rbc = ob.rigid_body_constraint
+                row = layout.row()
+
+                col = row.column(align=True)
+                col.label(text=i18n("Spring(Location)"))
+                col.prop(rbc, "spring_stiffness_x", text="X Stiffness")
+                col.prop(rbc, "spring_stiffness_y", text="Y Stiffness")
+                col.prop(rbc, "spring_stiffness_z", text="Z Stiffness")
+
+                col = row.column(align=True)
+                col.label(text=i18n("Spring(Angle)"))
+                col.prop(rbc, "spring_stiffness_ang_x", text="X Stiffness")
+                col.prop(rbc, "spring_stiffness_ang_y", text="Y Stiffness")
+                col.prop(rbc, "spring_stiffness_ang_z", text="Z Stiffness")
 
                 row = layout.row()
-                row.prop(mmr_bone, "collision_group_index", text="Collision Group")
-                row.prop(mmr_bone, "damping", text="Damping")
-
-                # 碰撞组掩码部分
-                col = layout.column(align=True)
-                col.label(text=i18n("Collision Group Mask:"))
-
-                # 第一行显示 0-7 组
-                row = col.row(align=True)
-                for i in range(0, 8):
-                    row.prop(mmr_bone, "collision_group_mask", index=i, text=str(i), toggle=True)
-
-                # 第二行显示 8-15 组
-                row = col.row(align=True)
-                for i in range(8, 16):
-                    row.prop(mmr_bone, "collision_group_mask", index=i, text=str(i), toggle=True)
-
-                # 装配刚体
-                layout.operator(Assign_Rigidbody.bl_idname)
-
-                # 装配骨架刚体
-                layout.operator(Assign_armature_rigidbody.bl_idname)
-
+                # 选择碰撞组
+                row.operator(Select_Collision_Group_For_Joint.bl_idname)
+                # 按类型选择
+                row.operator(Select_By_Type_For_Joint.bl_idname)
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
         return context.active_object is not None
+
+# 刚体选择
+class MMRSelect_PT_Rigidbody(bpy.types.Panel):
+    bl_idname = "MMR_PT_Select_Rigidbody"
+    bl_label = "Rigidbody Select"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "physics"
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        # 选择碰撞组
+        row.operator(Select_Collision_Group.bl_idname)
+        # 按类型选择
+        row.operator(Select_By_Type.bl_idname)
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        return context.active_object.rigid_body is not None
+
+# 刚体约束选择
+class MMR_PT_Select_Constructability(bpy.types.Panel):
+    bl_idname = "MMR_PT_Select_Constructability"
+    bl_label = "Rigidbody Constraint Select"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "physics"
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        # 选择碰撞组
+        row.operator(Select_Collision_Group_For_Joint.bl_idname)
+        # 按类型选择
+        row.operator(Select_By_Type_For_Joint.bl_idname)
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        return context.active_object.rigid_body_constraint is not None

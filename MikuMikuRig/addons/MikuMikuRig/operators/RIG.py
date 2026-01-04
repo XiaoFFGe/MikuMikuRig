@@ -11,6 +11,7 @@ import os
 from math import radians
 import numpy as np
 
+from MikuMikuRig.addons.MikuMikuRig import has_keyframes_for_property
 from MikuMikuRig.common.class_loader.auto_load import blender_version
 
 
@@ -120,10 +121,6 @@ class mmrrigOperator(bpy.types.Operator):
         for key, value in Arm_Towards.items():
             if key == self.Towards:
                 mmd_arm.rotation_euler.z = value * (3.1415926 / 180)
-
-            # 确保物体数据是唯一的
-            if mmd_arm.data.users > 1:
-                mmd_arm.data = mmd_arm.data.copy()
 
             # 激活物体
             bpy.context.view_layer.objects.active = mmd_arm
@@ -364,7 +361,7 @@ class mmrrigOperator(bpy.types.Operator):
             object_b = B
 
             if object_a and object_b:
-                object_a_copy = object_a.copy()  # 复制物体 A data
+                object_a_copy = object_a.copy()  # 复制物体 A
 
                 # 获取物体 B 的世界矩阵
                 world_matrix_b = object_b.matrix_world
@@ -378,6 +375,8 @@ class mmrrigOperator(bpy.types.Operator):
                 # 应用新的局部变换矩阵到物体 A
                 object_a.matrix_local = new_world_matrix
                 object_a.scale = object_a_copy.scale  # 保留原始缩放
+                # 删除object_a_copy
+                bpy.data.objects.remove(object_a_copy, do_unlink=True)
                 # 更新场景
                 bpy.context.view_layer.update()
 
@@ -832,7 +831,7 @@ class mmrrigOperator(bpy.types.Operator):
         v = mmr.Bend_angle_leg
         v1 = mmr.Bend_angle_arm
 
-        # 弯曲骨骼(必须要，不然就会出bug)
+        # 弯曲骨骼
         if mmr.Bend_the_bones:
             if Calculate_intersection_angle(RIG, 'upper_arm.L', 'forearm.L') > 165:
                 rotate_bone_x(RIG,'upper_arm.L',angle_deg=-v1)
@@ -952,7 +951,7 @@ class mmrrigOperator(bpy.types.Operator):
             s_bone.parent = e_bone
             # 加入集合
             bpy.ops.object.mode_set(mode='POSE')
-            data_bones = rigify.pose.bones
+            data_bones = rigify.data.bones
             t_bone = data_bones.get('ORG-' + k + '_parent')
             t_bone.select = True # 活动骨骼
             bpy.ops.armature.collection_assign(name='ORG')
@@ -1086,7 +1085,7 @@ class mmrrigOperator(bpy.types.Operator):
         t_bone.color.palette = 'THEME09'
         t_bone.custom_shape = bpy.data.objects["WGT-RIG-" + RIG.name + "_root"]
         # 加入集合
-        data_bones = rigify.pose.bones
+        data_bones = rigify.data.bones
         t_bone = data_bones.get('torso_root')
         t_bone.select = True
         bpy.ops.armature.collection_assign(name='Torso')
@@ -1219,7 +1218,7 @@ class mmrexportvmdactionsOperator(bpy.types.Operator):
         for bone in armature.pose.bones:
             for constraint in bone.constraints:
                 if constraint.name == "MMR_复制变换":
-                    bone.select = True
+                    bone.bone.select = True
                     break
 
         start = bpy.context.scene.frame_start
@@ -1233,11 +1232,12 @@ class mmrexportvmdactionsOperator(bpy.types.Operator):
 
 class MahyPdtOperator(bpy.types.Operator):
     bl_idname = "object.mdtsu_ops"
-    bl_label = "Add Mouth Panel"
+    bl_label = "Add Emoji Panel"
     # 确保在操作之前备份数据，用户撤销操作时可以恢复
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
+        global obj
         tyu = None
         # 获取当前活动的物体
         active_object = context.view_layer.objects.active
@@ -1309,18 +1309,18 @@ class MahyPdtOperator(bpy.types.Operator):
         exists = check_collection_exists("Mouth_Rigvitfy")
         print("集合存在" if exists else "集合不存在")
 
-        if exists == False:
+        if not exists:
             # 获取目录路径
             current_dir = os.path.dirname(os.path.abspath(__file__))
             print(f"当前目录路径：{current_dir}")
             # 路径拼接
-            file_path = os.path.join(current_dir, "Mouth_Rig.blend")
+            file_path = os.path.join(current_dir, "Emoji_Rig.blend")
             # 标准化路径（处理双斜杠等问题）
             normalized_path = os.path.normpath(file_path)
             print(f"blend文件路径：{normalized_path}")
 
             # 配置目标集合名称
-            target_collection = "Mouth_Rigtion"
+            target_collection = "Emoji_Rigtion"
 
             # 构造Blender内部路径格式
             internal_dir = str(normalized_path) + "/Collection/"
@@ -1333,6 +1333,7 @@ class MahyPdtOperator(bpy.types.Operator):
                 filename=target_collection,
             )
 
+            # 删除集合并将其对象和子集合转移到父集合
             def delete_collection_and_move_to_parent(collection_name):
                 target_coll = bpy.data.collections.get(collection_name)
                 if not target_coll:
@@ -1365,11 +1366,11 @@ class MahyPdtOperator(bpy.types.Operator):
                 # 删除目标集合
                 bpy.data.collections.remove(target_coll)
 
-            # 执行操作
-            delete_collection_and_move_to_parent('Mouth_Rigtion')
+            # 删除Mouth_Rigtion集合
+            delete_collection_and_move_to_parent(target_collection)
 
             # 检查集合是否存在
-            if "Mouth_Rigvitfy" not in bpy.data.collections:
+            if "Emoji_Rigvitfy" not in bpy.data.collections:
                 print("集合不存在")
             else:
                 # 获取当前视图层
@@ -1386,7 +1387,7 @@ class MahyPdtOperator(bpy.types.Operator):
                     return False
 
                 # 调用函数排除集合
-                if exclude_collection(view_layer.layer_collection, "Mouth_Rigvitfy"):
+                if exclude_collection(view_layer.layer_collection, "Emoji_Rigvitfy"):
                     print("集合已排除")
                 else:
                     print("集合未找到")
@@ -1395,15 +1396,15 @@ class MahyPdtOperator(bpy.types.Operator):
             current_dir = os.path.dirname(os.path.abspath(__file__))
             print(f"当前目录路径：{current_dir}")
             # 路径拼接
-            file_path = os.path.join(current_dir, "Mouth_Rig.blend")
+            file_path = os.path.join(current_dir, "Emoji_Rig.blend")
             # 标准化路径（处理双斜杠等问题）
             normalized_path = os.path.normpath(file_path)
             print(f"blend文件路径：{normalized_path}")
 
             # 设置追加参数
-            filepath = os.path.join(normalized_path, "Object", "Mouth_Rig_001")
+            filepath = os.path.join(normalized_path, "Object", "mmr_Mouth_Rig.01")
             directory = os.path.join(normalized_path, "Object")
-            filename = "Mouth_Rig_001"
+            filename = "mmr_Mouth_Rig.01"
 
             # 执行追加操作
             bpy.ops.wm.append(
@@ -1411,9 +1412,8 @@ class MahyPdtOperator(bpy.types.Operator):
                 directory=directory,
                 filename=filename,
             )
-            bpy.data.objects.get("Mouth_Rig_001").name = "Mouth_Rig"
 
-        def Add_a_lip_panel_driver(A, B, C, D):
+        def add_a_lip_panel_driver(shape_key_name, armature_obj, transform_type, driver_expression, bone_name, keyframe_values):
             # 获取当前选中的物体
             obj = bpy.context.object
             if not obj or obj.type != 'MESH':
@@ -1423,18 +1423,18 @@ class MahyPdtOperator(bpy.types.Operator):
             if not obj.data.shape_keys:
                 raise Exception("该物体没有形态键")
             key_blocks = obj.data.shape_keys.key_blocks
-            kb = key_blocks.get(A)
+            kb = key_blocks.get(shape_key_name)
             if not kb:
-                raise Exception("找不到形态键：",A)
+                raise Exception("找不到形态键：",shape_key_name)
 
             # 获取驱动骨架
-            arm = bpy.data.objects.get(B)
+            arm = armature_obj
             if not arm or arm.type != 'ARMATURE':
                 raise Exception("骨架不存在")
 
             # 验证目标骨骼
-            if "qws_F2" not in arm.pose.bones:
-                raise Exception("骨架中不存在骨骼'qws_F2'")
+            if bone_name not in arm.pose.bones:
+                raise Exception("骨架中不存在骨骼",bone_name)
 
             # 添加驱动器
             fcurve = kb.driver_add("value")
@@ -1453,15 +1453,12 @@ class MahyPdtOperator(bpy.types.Operator):
             # 配置变量目标
             target = var.targets[0]
             target.id = arm
-            if A != panel_preset['A']:
-                target.bone_target = "qws_F2"
-            else:
-                target.bone_target = "qws_F3"
-            target.transform_type = C
+            target.bone_target = bone_name
+            target.transform_type = transform_type
             target.transform_space = 'LOCAL_SPACE'  # 局部空间
 
             # 设置驱动表达式
-            driver.expression = D
+            driver.expression = driver_expression
 
             print("形态键驱动器已成功添加")
 
@@ -1474,10 +1471,7 @@ class MahyPdtOperator(bpy.types.Operator):
 
             # 添加关键帧 (X位置对应变量值，Y位置对应形态键值)
             fcurve.keyframe_points.insert(0.0, 0.0)  # 输入0 → 输出0
-            if A != panel_preset['A']:
-                fcurve.keyframe_points.insert(0.106, 1.0)  # 输入0.106 → 输出1
-            else:
-                fcurve.keyframe_points.insert(0.192, 1.0)  # 输入0.192 → 输出1
+            fcurve.keyframe_points.insert(keyframe_values[0], keyframe_values[1])  # 输入keyframe_values[0] → 输出keyframe_values[1]
 
             # 设置插值模式为线性
             for kp in fcurve.keyframe_points:
@@ -1510,7 +1504,7 @@ class MahyPdtOperator(bpy.types.Operator):
             # 设置外插模式
             fcurve.extrapolation = 'LINEAR'  # 设置为线性外插
 
-            # 可选：验证设置结果
+            # 验证设置结果
             print("当前外插模式：", fcurve.extrapolation)
 
             # 强制更新曲线数据
@@ -1518,15 +1512,106 @@ class MahyPdtOperator(bpy.types.Operator):
 
             print("外插模式已设置为线性")
 
-        Add_a_lip_panel_driver(panel_preset['U'],"Mouth_Rig",'LOC_X',"-var + 0.0")
-        Add_a_lip_panel_driver(panel_preset['I'],"Mouth_Rig",'LOC_X',"var + 0.0")
-        Add_a_lip_panel_driver(panel_preset['O'],"Mouth_Rig",'LOC_Z',"-var + 0.0")
-        Add_a_lip_panel_driver(panel_preset['E'],"Mouth_Rig",'LOC_Z',"var + 0.0")
-        Add_a_lip_panel_driver(panel_preset['A'],"Mouth_Rig",'LOC_X',"var + 0.0")
+        # 单一属性驱动器
+        def add_a_lip_panel_driver_single(mesh, arm, shape_key_name, driver_expression, keyframe_values, property_path):
+            # 获取当前选中的物体
+            obj = mesh
+            if not obj or obj.type != 'MESH':
+                raise Exception("请选择一个网格物体")
 
-        # 获取需要添加约束的物体和目标物体
-        obj = bpy.data.objects['Mouth_Rig']  # 被施加约束的物体
+            # 检查形态键
+            if not obj.data.shape_keys:
+                raise Exception("该物体没有形态键")
+
+            key_blocks = obj.data.shape_keys.key_blocks
+            kb = key_blocks.get(shape_key_name)
+
+            if not kb:
+                raise Exception("找不到形态键：", shape_key_name)
+
+            # 获取驱动骨架
+            if not arm or arm.type != 'ARMATURE':
+                raise Exception("骨架不存在")
+
+            # 添加驱动器
+            fcurve = kb.driver_add("value")
+            driver = fcurve.driver
+            driver.type = 'SCRIPTED'  # 驱动类型
+
+            # 清除旧变量
+            while driver.variables:
+                driver.variables.remove(driver.variables[0])
+
+            # 创建新变量
+            var = driver.variables.new()
+            var.name = "var"
+            var.type = 'SINGLE_PROP'  # 变量类型
+
+            # 配置变量目标
+            target = var.targets[0]
+            target.id_type = 'OBJECT'
+            target.id = arm
+            target.data_path = str(property_path)  # 变量目标
+
+            # 设置驱动表达式
+            driver.expression = driver_expression
+
+            # 清除旧关键帧（避免重复）
+            fcurve.keyframe_points.clear()
+
+            # 添加关键帧 (X位置对应变量值，Y位置对应形态键值)
+            fcurve.keyframe_points.insert(0.0, 0.0)  # 输入0 → 输出0
+            fcurve.keyframe_points.insert(keyframe_values[0], keyframe_values[1])  # 输入keyframe_values[0] → 输出keyframe_values[1]
+
+            # 设置插值模式为线性
+            for kp in fcurve.keyframe_points:
+                kp.interpolation = 'LINEAR'
+
+            # 强制更新曲线数据
+            fcurve.update()
+
+            print("关键帧添加完成")
+
+            # 确保存在F曲线
+            if not hasattr(fcurve, 'modifiers'):
+                raise Exception("当前F曲线不支持修改器")
+
+            # 删除所有修改器
+            if fcurve.modifiers:
+                print(f"正在移除 {len(fcurve.modifiers)} 个修改器...")
+                # 反向遍历避免索引错位
+                for i in range(len(fcurve.modifiers) - 1, -1, -1):
+                    fcurve.modifiers.remove(fcurve.modifiers[i])
+
+                fcurve.update()
+                print("所有修改器已清除")
+            else:
+                print("该F曲线没有需要删除的修改器")
+
+            # 验证结果
+            print("剩余修改器数量:", len(fcurve.modifiers))
+
+            # 设置外插模式
+            fcurve.extrapolation = 'LINEAR'  # 设置为线性外插
+
+            # 验证设置结果
+            print("当前外插模式：", fcurve.extrapolation)
+
+            # 强制更新曲线数据
+            fcurve.update()
+
+            print("外插模式已设置为线性")
+
+        obj = bpy.data.objects['mmr_Mouth_Rig.01']
+        obj.name = 'mmr_Mouths_Rig.0ffad2ff56FF8gggfa7459gaAA9'
         target_obj = bpy.data.objects[tyu]  # 目标物体
+
+        add_a_lip_panel_driver(panel_preset['A'],obj,'LOC_X',"var + 0.0","qws_F3",[0.192, 1.0])
+
+        add_a_lip_panel_driver(panel_preset['U'],obj,'LOC_X',"-var + 0.0","qws_F2",[0.106, 1.0])
+        add_a_lip_panel_driver(panel_preset['I'],obj,'LOC_X',"var + 0.0","qws_F2",[0.106, 1.0])
+        add_a_lip_panel_driver(panel_preset['O'],obj,'LOC_Z',"-var + 0.0","qws_F2",[0.106, 1.0])
+        add_a_lip_panel_driver(panel_preset['E'],obj,'LOC_Z',"var + 0.0","qws_F2",[0.106, 1.0])
 
         # 添加复制变换约束
         constraint = obj.constraints.new(type='COPY_TRANSFORMS')
@@ -1540,15 +1625,15 @@ class MahyPdtOperator(bpy.types.Operator):
 
         # 通过名称获取物体
         obj1 = bpy.data.objects.get(tyu)
-        obj2 = bpy.data.objects.get('Mouth_Rig')
+        obj2 = obj
 
         # 检查物体是否存在
         if not obj1:
-            raise Exception("未找到名称为'1'的物体")
+            raise Exception(f"未找到名称为'{tyu}'的物体")
         if not obj2:
-            raise Exception("未找到名称为'2'的物体")
+            raise Exception(f"未找到名称为'{obj.name}'的物体")
 
-        # 选中两个物体
+        # 选中物体
         obj1.select_set(True)
         obj2.select_set(True)
 
@@ -1556,6 +1641,9 @@ class MahyPdtOperator(bpy.types.Operator):
         bpy.context.view_layer.objects.active = obj1
         # 合并骨架
         bpy.ops.object.join()
+
+        active_object.select_set(True)
+
         # 姿态模式
         bpy.ops.object.mode_set(mode="POSE")
         # 获取目标骨骼
@@ -1572,33 +1660,186 @@ class MahyPdtOperator(bpy.types.Operator):
         armature = bpy.context.active_object
         constraint.target = bpy.data.objects.get(tyu)
 
+        bone_subtarget_name = None
+
         if bone_air:
-            constraint.subtarget = panel_preset['bone']
+            bone_subtarget_name = panel_preset['bone']
+            constraint.subtarget = bone_subtarget_name
         else:
             if subtarget_bone:
-                constraint.subtarget = "頭"
+                bone_subtarget_name = "頭"
+                constraint.subtarget = bone_subtarget_name
             else:
-                constraint.subtarget = "head"
+                bone_subtarget_name = "head"
+                constraint.subtarget = bone_subtarget_name
+
+        bpy.ops.object.mode_set(mode="EDIT") # 切换到编辑模式
+        bone_subtarget = obj1.data.edit_bones.get(bone_subtarget_name)
+        bone_subtarget_length = bone_subtarget.length
+        bpy.ops.object.mode_set(mode="POSE") # 切换到姿态模式
 
         bpy.ops.pose.select_all(action='DESELECT')
         # 选中并激活骨骼
         bpy.ops.pose.select_all(action='DESELECT')  # 取消所有骨骼选择
         armature.data.bones.active = target_bone.bone  # 设置活动骨骼
-        target_bone.select = True  # 选中骨骼
-        # 反向
+        target_bone.bone.select = True  # 选中骨骼
+        # 反向设置子级约束
         bpy.ops.constraint.childof_set_inverse(constraint="MMD_Emoji_Manager", owner='BONE')
         bpy.ops.constraint.childof_clear_inverse(constraint="MMD_Emoji_Manager", owner='BONE')
         # 设置变换
         target_bone.rotation_mode = 'XYZ'
         target_bone.rotation_euler[0] = -1.5708 # X旋转
-        target_bone.location[1] = -0.05 # Y位置
-        target_bone.location[0] = 0.25 # X位置
-        target_bone.scale[0] = 0.6
-        target_bone.scale[1] = 0.6
-        target_bone.scale[2] = 0.6
+        target_bone.location.y = -(bone_subtarget_length / 2) # Y位置
+        target_bone.location.x = bone_subtarget_length + 0.02 # X位置
+        target_bone.scale.x = 0.4
+        target_bone.scale.y = 0.4
+        target_bone.scale.z = 0.4
+
+        Bone_shape = {
+            "qws_F1": "rew_G2",
+            "qws_F3": "rew_G3",
+            "qws_F2": "rew_G1",
+        }
+
         # 骨骼形状
-        target_bone.custom_shape = bpy.data.objects["rew_G2"]
-        bpy.context.active_object.pose.bones.get("qws_F3").custom_shape = bpy.data.objects["rew_G3"]
-        bpy.context.active_object.pose.bones.get("qws_F2").custom_shape = bpy.data.objects["rew_G1"]
+        for bone_name, shape_name in Bone_shape.items():
+            obj1.pose.bones.get(bone_name).custom_shape = bpy.data.objects[shape_name]
+
+        key_skip = [panel_preset['A'],panel_preset['U'],panel_preset['I'],panel_preset['O'],panel_preset['E']]
+
+        # 获取模型形态
+        shape_key = active_object.data.shape_keys.key_blocks
+
+        items = obj1.mmr_key
+        items.clear()
+
+        # 遍历模型形态
+        for idx, key in enumerate(shape_key):
+            item = items.add()
+            if idx == 0:
+                item.bool_value = False
+
+            if key.name in key_skip:
+                item.bool_value = False
+
+            item.name = key.name
+            item.value = key.value
+
+            if item.bool_value:
+                if not obj1.mmr.direct_operation_shape_key:
+                    add_a_lip_panel_driver_single(active_object, obj1, key.name, "var + 0.0", [1.0, 1.0], f"mmr_key[{idx}].value")
+                else:
+                    item.meshkey_index = idx
+                    item.meshkey = active_object.data.shape_keys
+        return {'FINISHED'}
+
+# 批量调整形态
+class MMR_OT_Batch_Adjust_Shape_Key(bpy.types.Operator):
+    bl_idname = "mmr.batch_adjust_shape_key"
+    bl_label = ""
+    bl_description = "批量调整形态键"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        # 如果需要注册处理器
+        if obj.mmr.register_handler:
+            obj.mmr.register_handler = False
+            print("sync_mmr_key_values 已打开")
+            self.report({'INFO'}, "批量调整已打开")
+        else:
+            obj.mmr.register_handler = True
+            print("sync_mmr_key_values 已关闭")
+            self.report({'INFO'}, "批量调整已关闭")
 
         return {'FINISHED'}
+
+# 插入关键帧
+class MMR_OT_Insert_Keyframe(bpy.types.Operator):
+    bl_idname = "mmr.insert_keyframe"
+    bl_label = ""
+    bl_description = "插入当前帧的关键帧"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        # 插入关键帧
+        for idx, item in enumerate(obj.mmr_key):
+            if not obj.mmr.direct_operation_shape_key:
+                if item.select:
+                    obj.keyframe_insert(data_path="mmr_key[%d].value" % idx, frame=bpy.context.scene.frame_current)
+            else:
+                if item.select:
+                    item.meshkey.key_blocks[item.meshkey_index].keyframe_insert(data_path="value", frame=bpy.context.scene.frame_current)
+        return {'FINISHED'}
+
+# 取消选择所有key
+class MMR_OT_Unselect_All_Key(bpy.types.Operator):
+    bl_idname = "mmr.unselect_all_key"
+    bl_label = ""
+    bl_description = "取消选择所有模型形态"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        # 取消选择所有key
+        for item in obj.mmr_key:
+            item.select = False
+
+        return {'FINISHED'}
+
+# 选择所有key
+class MMR_OT_Select_All_Key(bpy.types.Operator):
+    bl_idname = "mmr.select_all_key"
+    bl_label = ""
+    bl_description = "选择所有形态键"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        # 选择所有key
+        for item in obj.mmr_key:
+            item.select = True
+
+        obj.mmr.use_keyframe_insert_auto = False
+
+        return {'FINISHED'}
+
+# 选择有关键帧的key
+class MMR_OT_Select_Keyframe_Key(bpy.types.Operator):
+    bl_idname = "mmr.select_keyframe_key"
+    bl_label = ""
+    bl_description = "选择有关键帧的形态键"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        # 选择有关键帧的key
+        for idx, item in enumerate(obj.mmr_key):
+
+            meshkey = item.meshkey
+
+            if not obj.mmr.direct_operation_shape_key:
+                if has_keyframes_for_property(obj, "mmr_key[%d].value" % idx):
+                    item.select = True
+            else:
+                if meshkey:
+                    if has_keyframes_for_property(meshkey, f"key_blocks['{str(item.name)}'].value"):
+                        item.select = True
+        return {'FINISHED'}
+

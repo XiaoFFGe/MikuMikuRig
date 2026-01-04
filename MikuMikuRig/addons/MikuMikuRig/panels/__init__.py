@@ -96,6 +96,11 @@ class MMR_property(bpy.types.PropertyGroup):
         subtype='FILE_PATH'
     )
 
+    select_deselect_all_items: BoolProperty(
+        name="Select/Deselect All Items",
+        default=False
+    )
+
     number: IntProperty(
         name="Int Config",
         default=2,
@@ -161,11 +166,19 @@ class MMR_property(bpy.types.PropertyGroup):
         default=False,
         description="仅生成元骨骼"
     )
-
+    # 吸取物体数据
+    Import_object_data: PointerProperty(
+        type=bpy.types.Object,
+        name="Import object data",
+    )
+    # key idx
+    key_idx: IntProperty(
+        name="Key index",
+        default=0,
+    )
     make_presets: BoolProperty(
         default=True,
     )
-
     number: IntProperty(
         default=0,
     )
@@ -188,6 +201,9 @@ class MMR_property(bpy.types.PropertyGroup):
     )
     Reference_bones: BoolProperty(
         default=False
+    )
+    joint_show: BoolProperty(
+        default=False,
     )
     f_pin: BoolProperty(
         default=True,
@@ -297,9 +313,43 @@ class MMR_property(bpy.types.PropertyGroup):
         min=0,
         max=1,
     )
-    # 废弃功能
-    Discarded_function: BoolProperty(
+    # 是否开启物理
+    physics_bool: BoolProperty(
         default=False,
+    )
+    # 转换完成后要不要隐藏MMD刚体部分
+    Hide_mmd_rigidbody: BoolProperty(
+        default=True,
+    )
+    # 批量调整形态
+    Batch_adjust_shape_key: FloatProperty(
+        default=0.0,
+        min=0.0,
+        max=1.0,
+        description="批量调整形态"
+    )
+    # 是否注册处理器
+    register_handler: BoolProperty(
+        default=True,
+    )
+    # 是否自动插入关键帧
+    use_keyframe_insert_auto: BoolProperty(
+        default=False,
+        description="是否自动插入关键帧"
+    )
+    # 存储上一次的值用于比较
+    last_batch_adjust_value: FloatProperty(
+        default=0.0,
+    )
+    # 选中的key里有关键帧的才会插入关键帧
+    insert_keyframe: BoolProperty(
+        default=False,
+        description="选中的形态键里有关键帧的才会插入关键帧"
+    )
+    # 是否直接操作形态键
+    direct_operation_shape_key: BoolProperty(
+        default=True,
+        description="是否直接操作形态键"
     )
     # 是否开启物理
     physics_bool: BoolProperty(
@@ -311,14 +361,14 @@ class MMR_bone_property(bpy.types.PropertyGroup):
     collision_group_mask: bpy.props.BoolVectorProperty(
         name="Collision Group Mask",
         size=16,  # 16个碰撞组
-        default=(False,) * 16,  # 默认全部勾选
+        default=(False,) * 16,  # 默认勾选
         description="Which collision groups this object should interact with"
     )
     # 碰撞组编号
     collision_group_index: bpy.props.IntProperty(
         name="Collision Group Index",
-        default=0,
-        min=0,
+        default=-1,
+        min=-1,
         max=15,
     )
     # 阻尼
@@ -327,4 +377,63 @@ class MMR_bone_property(bpy.types.PropertyGroup):
         default=0.99,
         min=0.0,
         max=1.0,
+    )
+    # 骨骼
+    bone: bpy.props.StringProperty(
+        name="",
+        default="",
+        description="骨骼名称"
+    )
+    # 面板布尔值
+    panel_bool: bpy.props.BoolProperty(
+        default=False,
+    )
+    # 刚体类型(1.骨骼,2.物理,3.物理+骨骼)
+    rigidbody_type: bpy.props.EnumProperty(
+        name="Rigidbody Type",
+        items=[
+            ("0", "骨骼", "骨骼"),
+            ("1", "物理", "物理"),
+            ("2", "物理+骨骼", "物理+骨骼"),
+        ],
+        default="1",
+    )
+
+    mmr_type: bpy.props.StringProperty(
+        name="MMR Type",
+        default="",
+    )
+
+class MMR_Scene_Property(bpy.types.PropertyGroup):
+    mmd_rigid_panel_bool: bpy.props.BoolProperty(
+        default=False,
+    )
+
+class MMR_key_property(bpy.types.PropertyGroup):
+    name: bpy.props.StringProperty(
+        name="",
+        default="",
+        description="键名"
+    )
+    value: bpy.props.FloatProperty(
+        name="",
+        default=0.0,
+        min=0.0,
+        max=1.0,
+        description="键值"
+    )
+    select: bpy.props.BoolProperty(
+        default=False,
+    )
+    bool_value: bpy.props.BoolProperty(
+        default=True,
+    )
+    meshkey_index: bpy.props.IntProperty(
+        name="Mesh Key Index",
+        default=-1,
+    )
+    # 指针
+    meshkey: bpy.props.PointerProperty(
+        name="Mesh Key",
+        type=bpy.types.Key,
     )

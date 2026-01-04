@@ -132,6 +132,7 @@ class MMR_OT_SelectAllItems(Operator):
     def execute(self, context):
         for item in context.scene.mmr_json:
             item.is_selected = True
+        context.object.mmr.select_deselect_all_items = False
         return {'FINISHED'}
 
 # 取消全选
@@ -142,6 +143,28 @@ class MMR_OT_DeselectAllItems(Operator):
     def execute(self, context):
         for item in context.scene.mmr_json:
             item.is_selected = False
+        context.object.mmr.select_deselect_all_items = True
+        return {'FINISHED'}
+
+# 导入默认JSON文件(addons/MikuMikuRig/operators/presets/MMD_JP.json)
+class MMR_OT_ImportDefaultJson(Operator):
+    bl_idname = "mmr.import_default_json"
+    bl_label = "Import default presets"
+    def execute(self, context):
+        default_json_path = os.path.join(os.path.dirname(__file__), "presets", "MMD_JP.json")
+        if os.path.exists(default_json_path):
+            with open(default_json_path, 'r', encoding='utf - 8') as f:
+                data = json.load(f)
+
+            items = context.scene.mmr_json
+            items.clear() # 清空当前列表
+
+            for k, v in data.items():
+                item = items.add()
+                item.key = k
+                item.value = str(v)
+        else:
+            self.report({'ERROR'}, "默认JSON文件不存在")
         return {'FINISHED'}
 
 class MMR_OT_ImportJson(Operator):  # 导入JSON文件
@@ -227,8 +250,13 @@ class MMR_PT_JsonEditor(Panel):
         col = row.column(align=True)
         col.operator("mmr.add_json_item", icon='ADD', text="")
         col.operator("mmr.remove_json_item", icon='REMOVE', text="")
-        col.operator("mmr.select_all_items", icon='CHECKBOX_HLT',text="")
-        col.operator("mmr.deselect_all_items",icon='CHECKBOX_DEHLT', text="")
+
+        if context.object.mmr.select_deselect_all_items:
+            col.operator("mmr.select_all_items", icon='CHECKBOX_HLT',text="")
+        else:
+            col.operator("mmr.deselect_all_items",icon='CHECKBOX_DEHLT', text="")
+
+        col.operator("mmr.import_default_json", icon='FILE_REFRESH', text="")
 
         # 导入导出按钮
         row = layout.row()

@@ -146,11 +146,12 @@ class MMR_redirect(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='POSE')
             return {"FINISHED"}
 
+        bpy.ops.object.mode_set(mode='EDIT')  # 进入编辑模式
+
         # 清空骨骼父级
         arm.data.edit_bones['torso'].parent = None
         arm.data.edit_bones['root'].parent = None
 
-        bpy.ops.object.mode_set(mode='EDIT')  # 进入编辑模式
         # 设置骨骼父级
         arm.data.edit_bones['root'].parent = arm.data.edit_bones.get('torso')
         # 不要继承父级的变换
@@ -374,7 +375,7 @@ class MMR_redirect(bpy.types.Operator):
         for bone in armature.pose.bones:
             for constraint in bone.constraints:
                 if constraint.name == "BAC_ROT_COPY":
-                    bone.select = True
+                    bone.bone.select = True
                     break
 
         bpy.ops.nla.bake(frame_start=int(start_frame), frame_end=int(end_frame), visual_keying=True, bake_types={'POSE'})
@@ -909,7 +910,7 @@ class MMR_Import_VMD(bpy.types.Operator):
         for bone in armature.pose.bones:
             for constraint in bone.constraints:
                 if constraint.name == "BAC_ROT_COPY":
-                    bone.select = True
+                    bone.bone.select = True
                     break
 
         bpy.ops.nla.bake(frame_start=int(start_frame), frame_end=int(end_frame), visual_keying=True, bake_types={'POSE'})
