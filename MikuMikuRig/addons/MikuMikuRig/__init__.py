@@ -15,7 +15,7 @@ bl_info = {
     "name": "MikuMikuRig",
     "author": "小峰峰哥l",
     "blender": (4, 2, 0),
-    "version": (1, 76),
+    "version": (1, 78),
     "description": "MMD骨骼优化工具",
     "tracker_url": "https://space.bilibili.com/2109816568?spm_id_from=333.1007.0.0",
     "support": "COMMUNITY",
@@ -32,6 +32,40 @@ def sync_mmr_key_values(scene,depsgraph):
 
     if not obj:
         return
+
+    # 获取key对象
+    key_obj = obj.mmr.key_obj
+
+    if not key_obj:
+        return
+
+    # 如果值改变, 则进行处理
+    if key_obj is not obj.mmr.Import_object_data:
+
+        # 更新存储的值
+        obj.mmr.Import_object_data = key_obj
+
+        print("key_obj", key_obj)
+
+        if not key_obj.type == 'MESH':
+            return
+
+        # 获取模型形态
+        shape_key = key_obj.data.shape_keys.key_blocks
+
+        items = obj.mmr_key
+        items.clear()
+
+        # 遍历模型形态
+        for idx, key in enumerate(shape_key):
+            item = items.add()
+            if idx == 0:
+                item.bool_value = False
+
+            item.name = key.name
+            item.value = key.value
+            item.meshkey_index = idx
+            item.meshkey = key_obj.data.shape_keys
 
     # 获取批量调整值
     current_value1 = obj.mmr.Batch_adjust_shape_key

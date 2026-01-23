@@ -171,6 +171,11 @@ class MMR_property(bpy.types.PropertyGroup):
         type=bpy.types.Object,
         name="Import object data",
     )
+    # key物体
+    key_obj: PointerProperty(
+        type=bpy.types.Object,
+        name="Key object",
+    )
     # key idx
     key_idx: IntProperty(
         name="Key index",

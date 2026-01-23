@@ -47,6 +47,9 @@ class MMR_key_Options(bpy.types.Panel):
         layout = self.layout
 
         obj = context.active_object
+
+        layout.prop(obj.mmr, "key_obj", text="Mesh")
+
         if obj.mmr:
             # UL
             layout.template_list("MMR_UL_key", "", obj, "mmr_key", obj.mmr, "key_idx")
@@ -62,6 +65,11 @@ class MMR_key_Options(bpy.types.Panel):
             row.prop(obj.mmr, "Batch_adjust_shape_key", text=i18n('Batch Adjustment'))
             row.operator(MMR_OT_Insert_Keyframe.bl_idname, icon="LAYER_ACTIVE", text="")
             row.prop(obj.mmr, "use_keyframe_insert_auto", text='',icon='KEYFRAME')
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        return context.active_object is not None
+
 
 # 控制器选项面板
 class MMD_Rig_Opt(bpy.types.Panel):
