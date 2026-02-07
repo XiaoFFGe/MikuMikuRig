@@ -33,7 +33,6 @@ class MMR_UL_key(bpy.types.UIList):
                 if meshkey:
                     layout.prop(meshkey.key_blocks[item.meshkey_index], "value", text="")
 
-# 在条目加个面板
 class MMR_key_Options(bpy.types.Panel):
 
     bl_label = "MMR Key Options"
@@ -41,7 +40,7 @@ class MMR_key_Options(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = 'UI'
     # name of the side panel
-    bl_category = "Item"
+    bl_category = "Tool"
 
     def draw(self, context: bpy.types.Context):
         layout = self.layout
@@ -163,7 +162,6 @@ class MMD_Rig_Opt(bpy.types.Panel):
                         box.prop(mmr, "panel_preset_E", text=i18n("E"))
                         box.prop(mmr, "panel_preset_O", text=i18n("O"))
                     layout.prop(mmr, "direct_operation_shape_key", text=i18n("Direct operation shape key"))
-
                     layout.prop(mmr, "Preset_editor", text=i18n("MMR Preset Editor"))
             else:
                 layout.scale_y = 1.2  # 这将使按钮的垂直尺寸加倍
@@ -173,6 +171,37 @@ class MMD_Rig_Opt(bpy.types.Panel):
                 row.operator(mmrmakepresetsOperator.bl_idname, text="Exit the designation")
         else:
             layout.label(text=i18n("Please choose a skeleton"), icon='ERROR')
+
+# 设置约束
+class Set_constraints(bpy.types.Panel):
+    bl_idname = "BONE_PT_mmr_constraints_bone"
+    bl_label = "MMR Bone constraints"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "bone"
+
+    @classmethod
+    def poll(cls, context):
+        if context.active_bone is None:
+            return False
+        else:
+            if bpy.context.mode == 'POSE':
+                if context.active_object.mmr.MMR_Arm:
+                    return True
+
+    def draw(self, context: bpy.types.Context):
+        layout = self.layout
+
+        mmr_bone = bpy.context.active_bone.mmr_bone
+
+        layout.label(text=i18n('Set constraint type:'))
+        names = [i18n('Copy Rotation'), i18n('Copy Location'), i18n('Copy Scale')]
+
+        row = layout.row(align=True)
+        for i in range(0, 3):
+            row.prop(mmr_bone, "Set_constraints", index=i, text=str(names[i]), toggle=True)
+
+
 # 骨骼重定向
 class MMD_Rig_Opt_Polar(bpy.types.Panel):
     bl_label = "Bone retargeting"

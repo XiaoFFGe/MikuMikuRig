@@ -84,6 +84,11 @@ dictionary = {
         ("*", "MMR Key Options"): "MMR 形态键",
         ("","Batch Adjustment"):"批量调整",
         ("", "Direct operation shape key"): "直接操作形态键",
+        ("", "Set constraint type:"): "设置约束类型:",
+        ("", "Copy Rotation"): "复制旋转",
+        ("", "Copy Location"): "复制位置",
+        ("", "Copy Scale"): "复制缩放",
+        ("*", "MMR Bone constraints"): "MMR骨骼约束",
     }
 }
 

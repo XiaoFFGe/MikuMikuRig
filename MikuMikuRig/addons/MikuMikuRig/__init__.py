@@ -4,7 +4,7 @@ from bpy.app.handlers import persistent
 from .config import __addon_name__
 from .i18n.dictionary import dictionary
 from .operators import has_keyframes_for_property
-from .panels import MMR_property, MMR_bone_property, MMR_Scene_Property, MMR_key_property
+from .panels import MMR_property, MMR_bone_property, MMR_Scene_Property, MMR_key_property, MMR_Physics_property
 from ...common.class_loader import auto_load
 from ...common.class_loader.auto_load import add_properties, remove_properties
 from ...common.i18n.dictionary import common_dictionary
@@ -15,7 +15,7 @@ bl_info = {
     "name": "MikuMikuRig",
     "author": "小峰峰哥l",
     "blender": (4, 2, 0),
-    "version": (1, 78),
+    "version": (1, 88),
     "description": "MMD骨骼优化工具",
     "tracker_url": "https://space.bilibili.com/2109816568?spm_id_from=333.1007.0.0",
     "support": "COMMUNITY",
@@ -119,12 +119,14 @@ def register():
     add_properties(_addon_properties)
     bpy.utils.register_class(MMR_property)
     bpy.types.Object.mmr = bpy.props.PointerProperty(type=MMR_property)
-    bpy.utils.register_class(MMR_bone_property)
-    bpy.types.Object.mmr_bone = bpy.props.PointerProperty(type=MMR_bone_property)
+    bpy.utils.register_class(MMR_Physics_property)
+    bpy.types.Object.mmr_bone = bpy.props.PointerProperty(type=MMR_Physics_property)
     bpy.utils.register_class(MMR_Scene_Property)
     bpy.types.Scene.mmr = bpy.props.PointerProperty(type=MMR_Scene_Property)
     bpy.utils.register_class(MMR_key_property)
     bpy.types.Object.mmr_key = bpy.props.CollectionProperty(type=MMR_key_property)
+    bpy.utils.register_class(MMR_bone_property)
+    bpy.types.Bone.mmr_bone = bpy.props.PointerProperty(type=MMR_bone_property)
 
     # 注册事件处理函数, 当场景的属性更新时调用 sync_mmr_key_values 函数
     bpy.app.handlers.depsgraph_update_pre.append(sync_mmr_key_values)
@@ -140,16 +142,22 @@ def unregister():
     # 注销类
     auto_load.unregister()
     remove_properties(_addon_properties)
-    del bpy.types.Object.mmr
     bpy.utils.unregister_class(MMR_property)
+    del bpy.types.Object.mmr
+
+    bpy.utils.unregister_class(MMR_Physics_property)
     del bpy.types.Object.mmr_bone
+
     bpy.utils.unregister_class(MMR_Scene_Property)
     del bpy.types.Scene.mmr
+
     bpy.utils.unregister_class(MMR_key_property)
     del bpy.types.Object.mmr_key
+
+    bpy.utils.unregister_class(MMR_bone_property)
+    del bpy.types.Bone.mmr_bone
 
     # 注销事件处理函数
     bpy.app.handlers.depsgraph_update_pre.remove(sync_mmr_key_values)
 
-    bpy.utils.unregister_class(MMR_bone_property)
     print("{}插件已卸载。".format(bl_info["name"]))

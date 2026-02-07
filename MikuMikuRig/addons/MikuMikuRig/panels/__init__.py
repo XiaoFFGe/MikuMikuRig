@@ -91,6 +91,18 @@ class MMR_property(bpy.types.PropertyGroup):
         items=make_presets_enum('.py'),
     )
 
+    # 接着生成控制器
+    Generate_controllers: BoolProperty(
+        name="Generate controllers",
+        default=False,
+        description="生成控制器"
+    )
+    # mmd_Armature
+    mmd_Armature: PointerProperty(
+        type=bpy.types.Object,
+        name="mmd_Armature",
+    )
+
     filepath: StringProperty(
         name="",
         subtype='FILE_PATH'
@@ -99,6 +111,11 @@ class MMR_property(bpy.types.PropertyGroup):
     select_deselect_all_items: BoolProperty(
         name="Select/Deselect All Items",
         default=False
+    )
+
+    MMR_Arm: BoolProperty(
+        name='MMR Arm',
+        default=False,
     )
 
     number: IntProperty(
@@ -362,6 +379,16 @@ class MMR_property(bpy.types.PropertyGroup):
     )
 
 class MMR_bone_property(bpy.types.PropertyGroup):
+
+    Set_constraints: bpy.props.BoolVectorProperty(
+        name='Set constraints',
+        size=3,
+        default=(True,) * 3,
+        description="Set bone constraints"
+    )
+
+class MMR_Physics_property(bpy.types.PropertyGroup):
+
     # 碰撞组掩码属性 - 16个布尔值
     collision_group_mask: bpy.props.BoolVectorProperty(
         name="Collision Group Mask",

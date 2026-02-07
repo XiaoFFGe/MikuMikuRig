@@ -42,6 +42,9 @@ class polartargetOperator(bpy.types.Operator):
 
         return {'FINISHED'}
 
+# 接着生成
+
+# 生成控制器
 class mmrrigOperator(bpy.types.Operator):
     '''Build a controller'''
     bl_idname = "object.mmr_rig"
@@ -131,13 +134,12 @@ class mmrrigOperator(bpy.types.Operator):
 
         RIG = bpy.data.objects.get("MMR_Rig_relative")
 
-        def check_keywords(target_string: str) -> bool:
+        def check_keywords(target_string: str, keywords) -> bool:
             """
             检查目标字符串是否包含指定关键词列表中的任意一个
             :param target_string: 待检查的目标字符串
             :return: 若包含任意关键词返回True，否则返回False
             """
-            keywords = {"thumb", "index", "middle", "ring", "pinky"}
             for keyword in keywords:
                 if keyword in target_string:
                     return True
@@ -211,11 +213,8 @@ class mmrrigOperator(bpy.types.Operator):
             B_bone.roll = A_bone.roll
 
         # 对齐骨骼
-        def align_bones(A, D, B, C, Compare_Boolean=False, count = False):
+        def align_bones(A, D_armature_obj, B, C_armature_obj, Compare_Boolean=False, count = False, length = 0.0):
             # A骨骼(D骨架),B骨骼(C骨架)
-            # 获取 D 骨架和 C 骨架对象
-            D_armature_obj = bpy.data.objects.get(D)
-            C_armature_obj = bpy.data.objects.get(C)
 
             if not D_armature_obj or not C_armature_obj:
                 print("未找到 D 骨架或 C 骨架对象，请检查名称。")
@@ -275,6 +274,9 @@ class mmrrigOperator(bpy.types.Operator):
             else:
                 A_bone.head = local_head_B
                 A_bone.tail = local_tail_B
+
+            if length != 0.0:
+                A_bone.length = A_bone.length * length
 
             # 退出编辑模式
             bpy.ops.object.mode_set(mode='OBJECT')
@@ -586,236 +588,222 @@ class mmrrigOperator(bpy.types.Operator):
                     return False
             return len(parts1) < len(parts2)
 
-        # 变换
-        Move_location(mmd_arm,RIG)
-        # 缩放
-        Size_settings(RIG,mmd_arm)
-
         finger_bone = []
 
         arm_number = 0
-        arm_not_bone = []
 
-        # 遍历字典的键值对并打印
-        for key, value in config.items():
-            print(f"键名: {key}, 值: {value}")
+        if not RIG.mmr.Generate_controllers:
 
-            if check_keywords(value):
-                finger_bone.append(value)
+            # 变换
+            Move_location(mmd_arm,RIG)
+            # 缩放
+            Size_settings(RIG,mmd_arm)
 
-            if value == "spine":
-                # 调用函数
-                align_bones(value, RIG.name, key, mmd_arm.name)
-            else:
-                # 调用函数
-                align_bones(value, RIG.name, key, mmd_arm.name)
-
-            if value == "spine.006":
-                # 移动到正确位置
-                move_bone_a_to_b(RIG.name, mmd_arm.name, "face", key)
-                # 遍历字典的键值
-                for key, value in config.items():
-                    # 眼睛
-                    if value == "eye.L" or value == "eye.R":
-                        move_bone_a_to_b(RIG.name, mmd_arm.name, value, key)
-
-            if align_bones(value, RIG.name, key, mmd_arm.name, count=True):
-                arm_number += 1
-                # 激活物体
-                bpy.context.view_layer.objects.active = RIG
-                # 选择物体
-                RIG.select_set(True)
-                # 应用
-                bpy.ops.object.mode_set(mode='POSE')
-                bpy.ops.pose.armature_apply(selected=False)
-
-        for key, value in config.items():
-            if 'hand' in value:
-                if determine_side(value):
-                    calculate_tail_coordinates('f_middle.01.L', 'hand.L', RIG.name)
-                else:
-                    calculate_tail_coordinates('f_middle.01.R', 'hand.R', RIG.name)
-
-
-            if value == 'spine.003':
-                calculate_tail_coordinates('spine.004', 'spine.003', RIG.name, scale=False)
-
-            if 'foot' in value:
-                if determine_side(value):
-                    move_bone_a_to_b(RIG.name, RIG.name, "heel.02.L", value, A_bone_Z_location=True)
-                else:
-                    move_bone_a_to_b(RIG.name, RIG.name, "heel.02.R", value, A_bone_Z_location=True)
-
-            bpy.ops.object.mode_set(mode='POSE')  # 切到pose模式
-            bpy.ops.pose.armature_apply(selected=False)  # 应用
-
-        finger_bone_L = []
-        finger_bone_R = []
-
-        for v in finger_bone:
-            if determine_side(v):
-                finger_bone_L.append(v)
-            else:
-                finger_bone_R.append(v)
-
-        bpy.context.view_layer.objects.active = RIG
-        bpy.ops.object.mode_set(mode='EDIT')  # 切到编辑模式
-
-        if mmr.f_pin:
+            # 遍历字典的键值对并打印
             for key, value in config.items():
-                if '03' in value:
-                    f_pin = ['thumb', 'index', 'middle', 'ring', 'pinky']
-                    for f in f_pin:
-                        if f in value:
-                            v_bone = RIG.data.edit_bones.get(value)
-                            if format(v_bone.head.x, '.4f') == format(v_bone.tail.x, '.4f'):
-                                if format(v_bone.head.y, '.4f') == format(v_bone.tail.y, '.4f'):
-                                    pinky_parent = v_bone.parent.name
-                                    calculate_tail_coordinates(pinky_parent, value, RIG.name, distance=True, lengths=True)
+                print(f"键名: {key}, 值: {value}")
 
-        for bone in RIG.data.edit_bones:  # 遍历所有骨骼
-            bone.select = bone.name in finger_bone_R  # True=选中，False=不选
-        bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Z') # 原本想设x的,看到0.56 MMR这样用的,就这样吧
-        bpy.ops.armature.select_all(action='DESELECT') # 取消所有选择
+                if check_keywords(value, ["thumb", "index", "middle", "ring", "pinky"]):
+                    finger_bone.append(value)
 
-        for bone in RIG.data.edit_bones:
-            bone.select = bone.name in finger_bone_L
-        bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Z')
-        bpy.ops.armature.select_all(action='DESELECT')
+                # 调用函数
+                align_bones(value, RIG, key, mmd_arm)
 
-        roll_thumb = 'GLOBAL_NEG_Y'
+                if value == "spine.006":
+                    # 移动到正确位置
+                    move_bone_a_to_b(RIG.name, mmd_arm.name, "face", key)
+                    # 遍历字典的键值
+                    for key, value in config.items():
+                        # 眼睛
+                        if value == "eye.L" or value == "eye.R":
+                            move_bone_a_to_b(RIG.name, mmd_arm.name, value, key)
 
-        if mmr.Thumb_twist_aligns_with_the_world_Z_axis:
-            roll_thumb = 'GLOBAL_POS_Z'
+                if align_bones(value, RIG, key, mmd_arm, count=True):
+                    arm_number += 1
+                    # 激活物体      
+                    bpy.context.view_layer.objects.active = RIG
+                    # 选择物体
+                    RIG.select_set(True)
+                    # 应用
+                    bpy.ops.object.mode_set(mode='POSE')
+                    bpy.ops.pose.armature_apply(selected=False)
 
-        for bone in RIG.data.edit_bones:
-            if bone.name in finger_bone_R:
-                if 'thumb' in bone.name:
-                    bone.select = True
-                    bpy.ops.armature.calculate_roll(type=roll_thumb)
-                    bpy.ops.armature.select_all(action='DESELECT')
-            else:
-                if bone.name in finger_bone_L:
+            for key, value in config.items():
+                if 'hand' in value:
+                    if determine_side(value):
+                        calculate_tail_coordinates('f_middle.01.L', 'hand.L', RIG.name)
+                    else:
+                        calculate_tail_coordinates('f_middle.01.R', 'hand.R', RIG.name)
+
+                if value == 'spine.003':
+                    calculate_tail_coordinates('spine.004', 'spine.003', RIG.name, scale=False)
+
+                if 'foot' in value:
+                    if determine_side(value):
+                        move_bone_a_to_b(RIG.name, RIG.name, "heel.02.L", value, A_bone_Z_location=True)
+                    else:
+                        move_bone_a_to_b(RIG.name, RIG.name, "heel.02.R", value, A_bone_Z_location=True)
+
+            palm_aligs = {
+                'palm.01.L': 'f_index.01.L',
+                'palm.01.R': 'f_index.01.R',
+                'palm.02.L': 'f_middle.01.L',
+                'palm.02.R': 'f_middle.01.R',
+                'palm.03.L': 'f_ring.01.L',
+                'palm.03.R': 'f_ring.01.R',
+                'palm.04.L': 'f_pinky.01.L',
+                'palm.04.R': 'f_pinky.01.R',
+            }
+
+            for key, value in palm_aligs.items():
+                align_bones(key, RIG, value, RIG, length=2)
+                finger_bone.append(key)
+
+                bpy.ops.object.mode_set(mode='POSE')  # 切到pose模式
+                bpy.ops.pose.armature_apply(selected=False)  # 应用
+
+            finger_bone_L = []
+            finger_bone_R = []
+
+            for v in finger_bone:
+                if determine_side(v):
+                    finger_bone_L.append(v)
+                else:
+                    finger_bone_R.append(v)
+
+            bpy.context.view_layer.objects.active = RIG
+            bpy.ops.object.mode_set(mode='EDIT')  # 切到编辑模式
+
+            if mmr.f_pin:
+                for key, value in config.items():
+                    if '03' in value:
+                        f_pin = ['thumb', 'index', 'middle', 'ring', 'pinky']
+                        for f in f_pin:
+                            if f in value:
+                                v_bone = RIG.data.edit_bones.get(value)
+                                if format(v_bone.head.x, '.4f') == format(v_bone.tail.x, '.4f'):
+                                    if format(v_bone.head.y, '.4f') == format(v_bone.tail.y, '.4f'):
+                                        pinky_parent = v_bone.parent.name
+                                        calculate_tail_coordinates(pinky_parent, value, RIG.name, distance=True,
+                                                                   lengths=True)
+
+            for bone in RIG.data.edit_bones:  # 遍历所有骨骼
+                bone.select = bone.name in finger_bone_R  # True=选中，False=不选
+            bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Z')  # 原本想设x的,看到0.56 MMR这样用的,就这样吧
+            bpy.ops.armature.select_all(action='DESELECT')  # 取消所有选择
+
+            for bone in RIG.data.edit_bones:
+                bone.select = bone.name in finger_bone_L
+            bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Z')
+            bpy.ops.armature.select_all(action='DESELECT')
+
+            roll_thumb = 'GLOBAL_NEG_Y'
+
+            if mmr.Thumb_twist_aligns_with_the_world_Z_axis:
+                roll_thumb = 'GLOBAL_POS_Z'
+
+            for bone in RIG.data.edit_bones:
+                if bone.name in finger_bone_R:
                     if 'thumb' in bone.name:
                         bone.select = True
                         bpy.ops.armature.calculate_roll(type=roll_thumb)
                         bpy.ops.armature.select_all(action='DESELECT')
+                else:
+                    if bone.name in finger_bone_L:
+                        if 'thumb' in bone.name:
+                            bone.select = True
+                            bpy.ops.armature.calculate_roll(type=roll_thumb)
+                            bpy.ops.armature.select_all(action='DESELECT')
 
-        bjiy_1 = ['thigh.L', 'shin.L',
-                  'thigh.R', 'shin.R']
+            bjiy_1 = ['thigh.L', 'shin.L',
+                      'thigh.R', 'shin.R']
 
-        bjiy_2 = ['spine', 'spine.001',
-                  'spine.002', 'spine.003',
-                  'spine.004', 'spine.006',
-                  'upper_arm.L', 'forearm.L',
-                  'hand.L', 'upper_arm.R',
-                  'forearm.R', 'hand.R']
+            bjiy_2 = ['spine', 'spine.001',
+                      'spine.002', 'spine.003',
+                      'spine.004', 'spine.006',
+                      'upper_arm.L', 'forearm.L',
+                      'hand.L', 'upper_arm.R',
+                      'forearm.R', 'hand.R']
 
-        bjiy_3 = ['thigh.L', 'shin.L', 'foot.L', 'toe.L', 'thigh.R', 'shin.R', 'foot.R', 'toe.R']
+            bjiy_3 = ['thigh.L', 'shin.L', 'foot.L', 'toe.L', 'thigh.R', 'shin.R', 'foot.R', 'toe.R']
 
-        bjiy_4 = {'foot.L': 'toe.L', 'foot.R': 'toe.R'}
+            bjiy_4 = {'foot.L': 'toe.L', 'foot.R': 'toe.R'}
 
-        bjiy_5 = ['shoulder.L', 'shoulder.R']
+            bjiy_5 = ['shoulder.L', 'shoulder.R']
 
-        for bone in RIG.data.edit_bones:
-            bone.select = bone.name in bjiy_2
-        bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Y')
-        bpy.ops.armature.select_all(action='DESELECT')
-
-        for bone in RIG.data.edit_bones:
-            bone.select = bone.name in bjiy_2
-        bpy.ops.armature.calculate_roll(type='GLOBAL_NEG_Y')
-        bpy.ops.armature.select_all(action='DESELECT')
-
-        for bone in RIG.data.edit_bones:
-            bone.select = bone.name in bjiy_3
-        bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Y')
-        bpy.ops.armature.select_all(action='DESELECT')
-
-        for k, v in bjiy_4.items():
             for bone in RIG.data.edit_bones:
-                if bone.name == k:
-                    bone.select = True
-                    bpy.ops.armature.calculate_roll(type='GLOBAL_NEG_Z')
-                    bpy.ops.armature.select_all(action='DESELECT')
-                if bone.name == v:
-                    bone.select = True
-                    bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Z')
-                    bpy.ops.armature.select_all(action='DESELECT')
+                bone.select = bone.name in bjiy_2
+            bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Y')
+            bpy.ops.armature.select_all(action='DESELECT')
 
+            for bone in RIG.data.edit_bones:
+                bone.select = bone.name in bjiy_2
+            bpy.ops.armature.calculate_roll(type='GLOBAL_NEG_Y')
+            bpy.ops.armature.select_all(action='DESELECT')
+
+            for bone in RIG.data.edit_bones:
+                bone.select = bone.name in bjiy_3
+            bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Y')
+            bpy.ops.armature.select_all(action='DESELECT')
+
+            for k, v in bjiy_4.items():
+                for bone in RIG.data.edit_bones:
+                    if bone.name == k:
+                        bone.select = True
+                        bpy.ops.armature.calculate_roll(type='GLOBAL_NEG_Z')
+                        bpy.ops.armature.select_all(action='DESELECT')
+                    if bone.name == v:
+                        bone.select = True
+                        bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Z')
+                        bpy.ops.armature.select_all(action='DESELECT')
+
+            for bone in RIG.data.edit_bones:
+                bone.select = bone.name in bjiy_5
+            bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Z')
+            bpy.ops.armature.select_all(action='DESELECT')
+        else:
+            mmd_arm = context.object.mmr.mmd_Armature
+
+        if mmr.Only_meta_bones_are_generated:
+            mmr.Only_meta_bones_are_generated = False
+            RIG.mmr.Generate_controllers = True
+            RIG.mmr.mmd_Armature = mmd_arm
+            mmd_arm.matrix_world = mmd_arm_matrix  # 还原位置
+            RIG.matrix_world = mmd_arm_matrix  # 吸附位置
+            RIG.show_in_front = True # 在前面
+            RIG.mmr.MMR_Arm = True
+            return {'FINISHED'}
+
+        # 更新场景
+        bpy.context.view_layer.update()
+
+        bpy.ops.object.mode_set(mode='POSE')  # 切到姿态模式
+
+        ct_op = {}
+
+        # 备份所有骨骼的Set_constraints
+        for bone in RIG.data.bones:
+            lists = []
+            for item in bone.mmr_bone.Set_constraints:
+                lists.append(item)
+
+            ct_op[bone.name] = lists
+
+        bpy.ops.object.mode_set(mode='EDIT')  # 切到编辑模式
+
+        BackupMatrix = {}
+
+        # 备份所有骨骼的矩阵
         for bone in RIG.data.edit_bones:
-            bone.select = bone.name in bjiy_5
-        bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Z')
-        bpy.ops.armature.select_all(action='DESELECT')
-
-        # 设置父子级
-        for key, value in config.items():
-            # 进入RIG的编辑模式
-            bpy.context.view_layer.objects.active = RIG
-            bpy.ops.object.mode_set(mode='EDIT')
-            # 进入mmd_arm的编辑模式
-            bpy.context.view_layer.objects.active = mmd_arm
-            bpy.ops.object.mode_set(mode='EDIT')
-
-            mmd_edit_bones = mmd_arm.data.edit_bones
-            RIG_edit_bones = RIG.data.edit_bones
-
-            if 'eye' in value:
-                continue
-
-            # 检查骨骼是否存在
-            if key in mmd_edit_bones and value in RIG_edit_bones:
-                # 获取骨骼对象
-                mmd_bone = mmd_edit_bones[key]
-                RIG_bone = RIG_edit_bones[value]
-                # 新建骨骼
-                new_bone = RIG_edit_bones.new(name=value + '_parent')
-                new_bone.head = mmd_bone.head  # 复制头位置
-                new_bone.tail = mmd_bone.tail  # 复制尾位置
-                new_bone.roll = mmd_bone.roll  # 复制旋转
-                new_bone.parent = RIG_bone  # 设置父级
-            else:
-                print(f"骨骼 {key} 或 {value} 不存在于骨架中")
-
-        Wrist_twist = {'A':mmr.Left_lower_arm_twist, 'B':mmr.Right_lower_arm_twist, 'C':mmr.Left_upper_arm_twist, 'D':mmr.Right_upper_arm_twist}
-
-        Twist_bones = [{'forearm.L':Wrist_twist['A'], 'forearm.R':Wrist_twist['B'], 'upper_arm.L':Wrist_twist['C'], 'upper_arm.R':Wrist_twist['D']},
-                       {'DEF-forearm.L.001':Wrist_twist['A'], 'DEF-forearm.R.001':Wrist_twist['B'], 'DEF-upper_arm.L.001':Wrist_twist['C'], 'DEF-upper_arm.R.001':Wrist_twist['D']}]
-
-        for key, value in Twist_bones[0].items():
-
-            # 进入RIG的编辑模式
-            bpy.context.view_layer.objects.active = RIG
-            bpy.ops.object.mode_set(mode='EDIT')
-            # 进入mmd_arm的编辑模式
-            bpy.context.view_layer.objects.active = mmd_arm
-            bpy.ops.object.mode_set(mode='EDIT')
-
-            mmd_edit_bones = mmd_arm.data.edit_bones
-            RIG_edit_bones = RIG.data.edit_bones
-
-            if value in mmd_edit_bones:
-                # 获取骨骼对象
-                mmd_bone = mmd_edit_bones.get(value)
-                RIG_bone = RIG_edit_bones.get(key)
-
-                if not mmd_bone or not RIG_bone:
-                    continue
-
-                # 新建骨骼
-                new_bone = RIG_edit_bones.new(name=value + '_parent')
-                new_bone.head = mmd_bone.head  # 复制头位置
-                new_bone.tail = mmd_bone.tail  # 复制尾位置
-                new_bone.roll = mmd_bone.roll  # 复制旋转
-                new_bone.parent = RIG_bone
+            bone_matrix = bone.matrix.copy()
+            # 世界矩阵
+            bone_world_matrix = bone_matrix @ RIG.matrix_world
+            # 备份世界矩阵
+            BackupMatrix[bone.name] = bone_world_matrix
 
         # 激活骨架
         bpy.context.view_layer.objects.active = RIG
         RIG.select_set(True)
-
-        if mmr.Only_meta_bones_are_generated:
-            mmr.Only_meta_bones_are_generated = False
-            return {'FINISHED'}
 
         foot_L_world_z = get_bone_world_z('foot.L',RIG)
         foot_R_world_z = get_bone_world_z('foot.R',RIG)
@@ -889,6 +877,139 @@ class mmrrigOperator(bpy.types.Operator):
         rigify = bpy.context.active_object
         rigify.name = 'RIG-' + mmd_arm.name
 
+        # 设置父子级
+        for key, value in config.items():
+
+            # 原始矩阵
+            org_matrix = BackupMatrix.get(value)
+
+            if org_matrix is None:
+                print(f"骨骼 {value} 不存在于org_matrix中")
+                continue
+
+            value = 'ORG-' + value
+
+            # 进入RIG的编辑模式
+            bpy.context.view_layer.objects.active = rigify
+            bpy.ops.object.mode_set(mode='EDIT')
+            # 进入mmd_arm的编辑模式
+            bpy.context.view_layer.objects.active = mmd_arm
+            bpy.ops.object.mode_set(mode='EDIT')
+
+            mmd_edit_bones = mmd_arm.data.edit_bones
+            rigify_edit_bones = rigify.data.edit_bones
+
+            if 'eye' in value:
+                continue
+
+            # 检查骨骼是否存在
+            if key in mmd_edit_bones and value in rigify_edit_bones:
+                # 获取骨骼对象
+                mmd_bone = mmd_edit_bones[key]
+                rigify_bone = rigify_edit_bones[value]
+                # 新建骨骼
+                new_bone = rigify_edit_bones.new(name=value + '_parent')
+                new_bone.head = mmd_bone.head  # 复制头位置
+                new_bone.tail = mmd_bone.tail  # 复制尾位置
+                new_bone.roll = mmd_bone.roll  # 复制旋转
+                new_bone.parent = rigify_bone  # 设置父级
+
+                # 获取骨骼矩阵
+                new_bone_matrix = new_bone.matrix
+                # 世界空间矩阵
+                new_bone_world_matrix = new_bone_matrix @ rigify.matrix_world
+                # 获取rigify骨骼矩阵
+                rigify_bone_matrix = rigify_bone.matrix
+                # 获取rigify骨骼世界空间矩阵
+                rigify_bone_world_matrix = rigify_bone_matrix @ rigify.matrix_world
+
+                # 计算相对变换矩阵
+                relative_matrix = org_matrix.inverted() @ new_bone_world_matrix
+                # 得到新的世界空间矩阵
+                new_bone_world_matrix = rigify_bone_world_matrix @ relative_matrix
+
+                # 转换为局部空间
+                new_bone_matrix = new_bone_world_matrix @ rigify.matrix_world.inverted()
+                new_bone.matrix = new_bone_matrix
+
+                bpy.ops.object.mode_set(mode='POSE')
+
+                # 加入集合
+                bone = rigify.pose.bones.get(value + '_parent')
+                rigify.data.collections_all['ORG'].assign(bone)
+            else:
+                print(f"骨骼 {key} 或 {value} 不存在于骨架中")
+
+        # 设置捩骨
+        Wrist_twist = {'A':mmr.Left_lower_arm_twist, 'B':mmr.Right_lower_arm_twist, 'C':mmr.Left_upper_arm_twist, 'D':mmr.Right_upper_arm_twist}
+
+        Twist_bones = [{'forearm.L':Wrist_twist['A'], 'forearm.R':Wrist_twist['B'], 'upper_arm.L':Wrist_twist['C'], 'upper_arm.R':Wrist_twist['D']},
+                       {'DEF-forearm.L.001':Wrist_twist['A'], 'DEF-forearm.R.001':Wrist_twist['B'], 'DEF-upper_arm.L.001':Wrist_twist['C'], 'DEF-upper_arm.R.001':Wrist_twist['D']}]
+
+        for key, value in Twist_bones[0].items():
+
+            # 原始矩阵
+            org_matrix = BackupMatrix.get(key)
+
+            if org_matrix is None:
+                print(f"骨骼 {key} 不存在于org_matrix中")
+                continue
+
+            key = 'DEF-' + key
+
+            # 进入RIG的编辑模式
+            bpy.context.view_layer.objects.active = rigify
+            bpy.ops.object.mode_set(mode='EDIT')
+            # 进入mmd_arm的编辑模式
+            bpy.context.view_layer.objects.active = mmd_arm
+            bpy.ops.object.mode_set(mode='EDIT')
+
+            mmd_edit_bones = mmd_arm.data.edit_bones
+            rigify_edit_bones = rigify.data.edit_bones
+
+            # 获取骨骼
+            mmd_bone = mmd_edit_bones.get(value)
+            rigify_bone = rigify_edit_bones.get(key)
+
+            if not mmd_bone or not rigify_bone:
+                print(f"骨骼 {value} 或 {key} 不存在于骨架中")
+                continue
+
+            value = 'ORG-' + value
+
+            # 新建骨骼
+            new_bone = rigify_edit_bones.new(name=value + '_parent')
+            new_bone.head = mmd_bone.head  # 复制头位置
+            new_bone.tail = mmd_bone.tail  # 复制尾位置
+            new_bone.roll = mmd_bone.roll  # 复制旋转
+            new_bone.parent = rigify_bone
+
+            # 获取骨骼矩阵
+            new_bone_matrix = new_bone.matrix
+            # 世界空间矩阵
+            new_bone_world_matrix = new_bone_matrix @ rigify.matrix_world
+            # 获取rigify骨骼矩阵
+            rigify_bone_matrix = rigify_bone.matrix
+            # 获取rigify骨骼世界空间矩阵
+            rigify_bone_world_matrix = rigify_bone_matrix @ rigify.matrix_world
+
+            # 计算相对变换矩阵
+            relative_matrix = org_matrix.inverted() @ new_bone_world_matrix
+            # 得到新的世界空间矩阵
+            new_bone_world_matrix = rigify_bone_world_matrix @ relative_matrix
+
+            # 转换为局部空间
+            new_bone_matrix = new_bone_world_matrix @ rigify.matrix_world.inverted()
+            new_bone.matrix = new_bone_matrix
+
+            bpy.ops.object.mode_set(mode='POSE')
+
+            # 加入集合
+            bone = rigify.pose.bones.get(value + '_parent')
+            rigify.data.collections_all['ORG'].assign(bone)
+
+        bpy.ops.object.mode_set(mode='EDIT')
+
         if not mmr.ORG_mode:
             for key, value in config.items():
                 if 'eye' in value:
@@ -949,16 +1070,15 @@ class mmrrigOperator(bpy.types.Operator):
 
             # 父级
             s_bone.parent = e_bone
-            # 加入集合
+
             bpy.ops.object.mode_set(mode='POSE')
+            # 加入集合
             data_bones = rigify.data.bones
             t_bone = data_bones.get('ORG-' + k + '_parent')
-            t_bone.select = True # 活动骨骼
-            bpy.ops.armature.collection_assign(name='ORG')
-            bpy.ops.pose.select_all(action='DESELECT')
+            rigify.data.collections_all['ORG'].assign(t_bone)
 
         # 捩骨约束
-        for key, value in Twist_bones[-1].items():
+        for key, value in Twist_bones[1].items():
             value1 = 'ORG-' + value + '_parent'
             # 进入编辑模式
             bpy.ops.object.mode_set(mode='EDIT')
@@ -992,12 +1112,14 @@ class mmrrigOperator(bpy.types.Operator):
             constraint.target = rigify
             constraint.subtarget = value1
 
+        constraint_names = ['MMR_复制旋转', 'MMR_复制位置', 'MMR_复制缩放']
+
         # 添加约束
         for key, value in config.items():
 
-            value = 'ORG-' + value + '_parent'
+            value1 = 'ORG-' + value + '_parent'
 
-            print(f"键名: {key}, 值: {value}")
+            print(f"键名: {key}, 值: {value1}")
 
             bpy.context.view_layer.objects.active = mmd_arm
             mmd_arm.select_set(True)
@@ -1012,17 +1134,32 @@ class mmrrigOperator(bpy.types.Operator):
 
             # 删除所有约束
             for constraint in list(bone.constraints):
-                if constraint.name == 'MMR_复制变换':
+                if constraint.name in constraint_names:
                     bone.constraints.remove(constraint)
 
-            # 添加复制变换约束
-            if 'ORG-toe' in value:
-                constraint = bone.constraints.new(type='COPY_ROTATION')  # 复制旋转
-            else:
-                constraint = bone.constraints.new(type='COPY_TRANSFORMS')
-            constraint.name = 'MMR_复制变换'
+            # 添加复制旋转约束
+            constraint = bone.constraints.new(type='COPY_ROTATION')  # 复制旋转
+            constraint.name = constraint_names[0]
             constraint.target = rigify
-            constraint.subtarget = value
+            constraint.subtarget = value1
+            if not (ct_op.get(value))[0]:
+                constraint.influence = 0
+
+            # 添加复制位置约束
+            constraint = bone.constraints.new(type='COPY_TRANSFORMS')  # 复制位置
+            constraint.name = constraint_names[1]
+            constraint.target = rigify
+            constraint.subtarget = value1
+            if not (ct_op.get(value))[1]:
+                constraint.influence = 0
+
+            # 添加复制缩放约束
+            constraint = bone.constraints.new(type='COPY_SCALE')  # 复制缩放
+            constraint.name = constraint_names[2]
+            constraint.target = rigify
+            constraint.subtarget = value1
+            if not (ct_op.get(value))[2]:
+                constraint.influence = 0
 
         subtarget = ['つま先ＩＫ.L', 'つま先ＩＫ.R', '足ＩＫ.R', '足ＩＫ.L']
 
@@ -1087,9 +1224,7 @@ class mmrrigOperator(bpy.types.Operator):
         # 加入集合
         data_bones = rigify.data.bones
         t_bone = data_bones.get('torso_root')
-        t_bone.select = True
-        bpy.ops.armature.collection_assign(name='Torso')
-        bpy.ops.pose.select_all(action='DESELECT')
+        rigify.data.collections_all['Torso'].assign(t_bone)
 
         rigify.show_in_front = True # 在前面
 
