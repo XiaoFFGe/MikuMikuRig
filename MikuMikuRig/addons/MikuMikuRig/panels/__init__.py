@@ -71,6 +71,12 @@ def make_presets_enum(extension):
                 cache["files_ic"][idx]
             ))
 
+        items.append((
+            "mmr_preset_editor",
+            "MMR预设编辑器",
+            "导入MMR预设编辑器中的预设"
+        ))
+
         # 处理空列表情况
         return items or [("NONE", "无可用文件", "空预设")]
 
@@ -90,7 +96,12 @@ class MMR_property(bpy.types.PropertyGroup):
         description="选择骨骼重定向预设配置",
         items=make_presets_enum('.py'),
     )
-
+    # 禁用手掌修正
+    Disable_hand_fix: BoolProperty(
+        name="Disable hand fix",
+        default=False,
+        description="禁用手掌修正"
+    )
     # 接着生成控制器
     Generate_controllers: BoolProperty(
         name="Generate controllers",

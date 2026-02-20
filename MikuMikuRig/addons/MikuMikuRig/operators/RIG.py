@@ -79,8 +79,6 @@ class mmrrigOperator(bpy.types.Operator):
         # 获取当前Py文件所在的文件夹路径
         new_path = os.path.dirname(current_file_path)
         # 将当前文件夹路径和文件名组合成完整的文件路径
-        file = mmr.presets + '.json'
-        new_file_path = os.path.join(new_path, 'presets', file)
         blend_file_path = os.path.join(new_path, 'MMR_Rig.blend')
 
         # 设置追加参数
@@ -96,12 +94,20 @@ class mmrrigOperator(bpy.types.Operator):
                 filename=filename,
             )
 
-        if mmr.Import_presets:
-            new_file_path = mmr.json_filepath
+        if mmr.presets != 'mmr_preset_editor':
+            file = mmr.presets + '.json'
+            new_file_path = os.path.join(new_path, 'presets', file)
 
-        # 读取json文件
-        with open(new_file_path) as f:
-            config = json.load(f)
+            if mmr.Import_presets:
+                new_file_path = mmr.json_filepath
+
+            # 读取json文件
+            with open(new_file_path) as f:
+                config = json.load(f)
+        else:
+            config = {}
+            for item in context.scene.mmr_json:
+                config[item.key] = item.value
 
         # 检测是否开启rigify
         if 'rigify' not in bpy.context.preferences.addons.keys():
@@ -628,12 +634,14 @@ class mmrrigOperator(bpy.types.Operator):
                     bpy.ops.object.mode_set(mode='POSE')
                     bpy.ops.pose.armature_apply(selected=False)
 
-            for key, value in config.items():
-                if 'hand' in value:
-                    if determine_side(value):
-                        calculate_tail_coordinates('f_middle.01.L', 'hand.L', RIG.name)
-                    else:
-                        calculate_tail_coordinates('f_middle.01.R', 'hand.R', RIG.name)
+            # 手掌修正
+            if not mmd_arm.mmr.Disable_hand_fix:
+                for key, value in config.items():
+                    if 'hand' in value:
+                        if determine_side(value):
+                            calculate_tail_coordinates('forearm.L', 'hand.L', RIG.name,distance=True)
+                        else:
+                            calculate_tail_coordinates('forearm.R', 'hand.R', RIG.name,distance=True)
 
                 if value == 'spine.003':
                     calculate_tail_coordinates('spine.004', 'spine.003', RIG.name, scale=False)
@@ -684,8 +692,7 @@ class mmrrigOperator(bpy.types.Operator):
                                 if format(v_bone.head.x, '.4f') == format(v_bone.tail.x, '.4f'):
                                     if format(v_bone.head.y, '.4f') == format(v_bone.tail.y, '.4f'):
                                         pinky_parent = v_bone.parent.name
-                                        calculate_tail_coordinates(pinky_parent, value, RIG.name, distance=True,
-                                                                   lengths=True)
+                                        calculate_tail_coordinates(pinky_parent, value, RIG.name, distance=True,lengths=True)
 
             for bone in RIG.data.edit_bones:  # 遍历所有骨骼
                 bone.select = bone.name in finger_bone_R  # True=选中，False=不选
@@ -766,6 +773,9 @@ class mmrrigOperator(bpy.types.Operator):
 
         if mmr.Only_meta_bones_are_generated:
             mmr.Only_meta_bones_are_generated = False
+            RIG.mmr.presets = mmd_arm.mmr.presets
+            RIG.mmr.Import_presets = mmd_arm.mmr.Import_presets
+            RIG.mmr.json_filepath = mmd_arm.mmr.json_filepath
             RIG.mmr.Generate_controllers = True
             RIG.mmr.mmd_Armature = mmd_arm
             mmd_arm.matrix_world = mmd_arm_matrix  # 还原位置

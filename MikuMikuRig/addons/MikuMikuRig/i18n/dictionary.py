@@ -19,6 +19,7 @@ dictionary = {
         ("Operator", "make presets"): "制作预设",
         ("Operator", "Exit the designation"): "退出指定",
         ("Operator", "designated"): "指定",
+        ("Operator", "Re designated"): "重新指定",
         ("Operator", "Export VMD actions"): "导出VMD动作",
         ("", "Sets the default orientation"): "设置默认朝向",
         ("", "MMR Preset Editor"): "MMR预设编辑器",
@@ -41,6 +42,7 @@ dictionary = {
         ("", "ORG mode"): "ORG模式",
         ("*", "Physics options"): " 物理选项",
         ("Operator", "Add Damping Tracking"): "添加阻尼追踪",
+        ("", "return"): "返回",
         ("", "Softness"): "阻尼柔和度",
         ("", "Damping Tracking"): "阻尼追踪",
         ("", "MMD Rigidbody"): "MMD刚体",
@@ -89,6 +91,11 @@ dictionary = {
         ("", "Copy Location"): "复制位置",
         ("", "Copy Scale"): "复制缩放",
         ("*", "MMR Bone constraints"): "MMR骨骼约束",
+        ("", "Arm.L"): "手臂.L",
+        ("", "Arm.R"): "手臂.R",
+        ("", "Leg.L"): "腿部.L",
+        ("", "Leg.R"): "腿部.R",
+        ("", "Disable hand fix"): "禁用手掌修正",
     }
 }
 

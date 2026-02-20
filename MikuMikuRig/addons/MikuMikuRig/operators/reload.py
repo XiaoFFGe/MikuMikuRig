@@ -59,8 +59,6 @@ class MMR_JSON_Item(PropertyGroup):
     value: StringProperty(name="Value", default="")
     is_selected: BoolProperty(name="Selected", default=False)  # 选中状态属性
 
-
-
 # UI列表类
 class MMR_UL_JsonList(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
@@ -101,17 +99,19 @@ class MMR_OT_AddJsonItem(Operator):  # 添加键值对
     bl_label = "Add Item"
 
     def execute(self, context):
+        items = context.scene.mmr_json
         context.scene.mmr_json.add()
+        context.scene.mmr_json_index = len(items) - 1 if len(items) > 0 else -1
         return {'FINISHED'}
 
 class MMR_OT_RemoveJsonItem(Operator):  # 移除选中的键值对
     bl_idname = "mmr.remove_json_item"
     bl_label = "Remove Selected Items"
 
-    index: IntProperty()
-
     def execute(self, context):
+
         items = context.scene.mmr_json
+
         selected_indices = sorted(
             [i for i, item in enumerate(items) if item.is_selected],
             reverse=True  # 必须逆序删除避免索引错位
@@ -120,7 +120,48 @@ class MMR_OT_RemoveJsonItem(Operator):  # 移除选中的键值对
         for idx in selected_indices:
             items.remove(idx)
 
-        context.scene.mmr_json.remove(self.index)
+        if len(selected_indices) == 0:
+            context.scene.mmr_json.remove(context.scene.mmr_json_index)
+
+        if context.scene.mmr_json_index >= len(items):
+            context.scene.mmr_json_index = len(items) - 1 if len(items) > 0 else -1
+
+        return {'FINISHED'}
+
+# 上移选中项
+class MMR_OT_MoveUpSelectedItems(Operator):
+    bl_idname = "mmr.move_up_selected_items"
+    bl_label = "Move Up Selected Items"
+
+    def execute(self, context):
+        items = context.scene.mmr_json
+        if context.scene.mmr_json_index <= 0:
+            return {'FINISHED'}
+
+        item1 = items[context.scene.mmr_json_index]
+        item2 = items[context.scene.mmr_json_index - 1]
+
+        item1.key, item2.key = item2.key, item1.key
+        item1.value, item2.value = item2.value, item1.value
+        context.scene.mmr_json_index -= 1
+        return {'FINISHED'}
+
+# 下移选中项
+class MMR_OT_MoveDownSelectedItems(Operator):
+    bl_idname = "mmr.move_down_selected_items"
+    bl_label = "Move Down Selected Items"
+
+    def execute(self, context):
+        items = context.scene.mmr_json
+        if context.scene.mmr_json_index >= len(items) - 1:
+            return {'FINISHED'}
+
+        item1 = items[context.scene.mmr_json_index]
+        item2 = items[context.scene.mmr_json_index + 1]
+
+        item1.key, item2.key = item2.key, item1.key
+        item1.value, item2.value = item2.value, item1.value
+        context.scene.mmr_json_index += 1
 
         return {'FINISHED'}
 
@@ -165,6 +206,9 @@ class MMR_OT_ImportDefaultJson(Operator):
                 item.value = str(v)
         else:
             self.report({'ERROR'}, "默认JSON文件不存在")
+
+        context.object.mmr.select_deselect_all_items = True
+
         return {'FINISHED'}
 
 class MMR_OT_ImportJson(Operator):  # 导入JSON文件
@@ -187,6 +231,8 @@ class MMR_OT_ImportJson(Operator):  # 导入JSON文件
             item = items.add()
             item.key = k
             item.value = str(v)
+
+        context.object.mmr.select_deselect_all_items = True
 
         return {'FINISHED'}
 
@@ -233,7 +279,6 @@ class MMR_PT_JsonEditor(Panel):
         layout = self.layout
         scene = context.scene
 
-
         # 列表显示区域
         row = layout.row()
         row.template_list(
@@ -257,6 +302,10 @@ class MMR_PT_JsonEditor(Panel):
             col.operator("mmr.deselect_all_items",icon='CHECKBOX_DEHLT', text="")
 
         col.operator("mmr.import_default_json", icon='FILE_REFRESH', text="")
+        col.operator("mmr.designated", icon='GROUP_BONE', text="")
+
+        col.operator("mmr.move_up_selected_items", icon='TRIA_UP', text="")
+        col.operator("mmr.move_down_selected_items", icon='TRIA_DOWN', text="")
 
         # 导入导出按钮
         row = layout.row()

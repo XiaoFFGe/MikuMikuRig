@@ -1,7 +1,8 @@
 import bpy
 from numpy.f2py.capi_maps import depargs
 
-from MikuMikuRig.addons.MikuMikuRig.operators.MMRpresets import mmrmakepresetsOperator, mmrdesignatedOperator
+from MikuMikuRig.addons.MikuMikuRig.operators.MMRpresets import mmrmakepresetsOperator, mmrdesignatedOperator, MMR_OT_ImportPresets, \
+    MMR_OT_Designated
 from MikuMikuRig.addons.MikuMikuRig.operators.Physics import Add_Damping_Tracking, Remove_Damping_Tracking, Assign_Rigidbody, \
     Show_Rigidbody, Select_Collision_Group, Update_World, Select_By_Type, \
     mmdrigidbody_to_mmrrigidbody, Remove_physics, Show_Joint, Select_Collision_Group_For_Joint, Select_By_Type_For_Joint
@@ -70,6 +71,52 @@ class MMR_key_Options(bpy.types.Panel):
         return context.active_object is not None
 
 
+# IK-FK
+class IK_FK_fxer(bpy.types.Panel):
+    bl_label = "MMR IK-FK"
+    bl_idname = "Q_PT_MMR_IK_FK_0"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    # name of the side panel
+    bl_category = "Item"
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        # 检查是否有活动对象
+        if context.active_object is not None:
+            # 检查type是否为ARMATURE
+            if context.active_object.type == 'ARMATURE':
+                # 检查名称是否以"RIG"开头
+                if context.active_object.name.startswith("RIG"):
+                    return True
+        return False
+
+    def draw(self, context: bpy.types.Context):
+        layout = self.layout
+
+        cx_obj = context.active_object
+
+        row = layout.row()
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "upper_arm_parent.L":
+                row.prop(bone, '["IK_FK"]', text=i18n('Arm.L'))
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "upper_arm_parent.R":
+                row.prop(bone, '["IK_FK"]', text=i18n('Arm.R'))
+
+        row = layout.row()
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "thigh_parent.L":
+                row.prop(bone, '["IK_FK"]', text=i18n('Leg.L'))
+
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "thigh_parent.R":
+                row.prop(bone, '["IK_FK"]', text=i18n('Leg.R'))
+
 # 控制器选项面板
 class MMD_Rig_Opt(bpy.types.Panel):
     bl_label = "Controller options"
@@ -95,7 +142,7 @@ class MMD_Rig_Opt(bpy.types.Panel):
 
                 row = layout.row()
                 row.operator(mmrmakepresetsOperator.bl_idname, text="make presets")
-                row.prop(mmr, "Import_presets", text=i18n("Import presets"), toggle=True)
+                row.operator(MMR_OT_ImportPresets.bl_idname, text=i18n('Import presets') if not mmr.Import_presets else i18n('return'), depress=mmr.Import_presets)
 
                 # 增加按钮大小并添加图标
                 layout.scale_y = 1.2  # 这将使按钮的垂直尺寸加倍
@@ -115,23 +162,24 @@ class MMD_Rig_Opt(bpy.types.Panel):
                     # 弯曲腿部骨骼
                     row.prop(mmr, "Bend_the_leg_bones", text=i18n("Bend the leg bones"))
                     row.prop(mmr, "Bend_angle_leg", text=i18n("Bend angle"))
+                    # 禁用手掌修正
+                    layout.prop(mmr, "Disable_hand_fix", text=i18n("Disable hand fix"))
+                    # 手指选项
+                    layout.prop(mmr, "Finger_options", text=i18n("Finger options"))
+                    if mmr.Finger_options:
+                        layout.prop(mmr, "f_pin", text=i18n("Finger tip bone repair"))
+                        layout.prop(mmr, "Thumb_twist_aligns_with_the_world_Z_axis", text=i18n("Thumb twist aligns with the world Z-axis"))
 
                     # 使用ITASC解算器
                     layout.prop(mmr, "Use_ITASC_solver", text=i18n("Use ITASC solver"))
                     # ORG模式
                     layout.prop(mmr, "ORG_mode", text=i18n("ORG mode"))
-
+                    # 极性目标
                     layout.prop(mmr, "Polar_target", text=i18n("Polar target"))
-
+                    # 肩膀链接
                     layout.prop(mmr, "Shoulder_linkage", text=i18n("Shoulder linkage"))
                     if mmr.Shoulder_linkage:
                         layout.label(text=i18n("This option has a serious bug and should not be enabled"), icon='ERROR')
-
-                    layout.prop(mmr, "Finger_options", text=i18n("Finger options"))
-
-                    if mmr.Finger_options:
-                        layout.prop(mmr, "f_pin", text=i18n("Finger tip bone repair"))
-                        layout.prop(mmr, "Thumb_twist_aligns_with_the_world_Z_axis", text=i18n("Thumb twist aligns with the world Z-axis"))
 
                     layout.prop(mmr, "Upper_body_linkage", text=i18n("Upper body linkage"))
 
@@ -166,8 +214,27 @@ class MMD_Rig_Opt(bpy.types.Panel):
             else:
                 layout.scale_y = 1.2  # 这将使按钮的垂直尺寸加倍
                 layout.prop(mmr, "json_txt")
+                scene = context.scene
+                # 列表显示区域
+                row = layout.row()
+                row.template_list(
+                    "MMR_UL_JsonList",
+                    "",
+                    scene,
+                    "mmr_json",
+                    scene,
+                    "mmr_json_index",
+                    rows=4
+                )
+                # 右侧操作按钮列
+                col = row.column(align=True)
+                col.operator("mmr.add_json_item", icon='ADD', text="")
+                col.operator("mmr.remove_json_item", icon='REMOVE', text="")
                 row = layout.row()
                 row.operator(mmrdesignatedOperator.bl_idname, text="designated")
+                bone_name = scene.mmr_json[scene.mmr_json_index].value
+                row.operator(MMR_OT_Designated.bl_idname, text=i18n("Re designated")+f"({bone_name})")
+                row = layout.row()
                 row.operator(mmrmakepresetsOperator.bl_idname, text="Exit the designation")
         else:
             layout.label(text=i18n("Please choose a skeleton"), icon='ERROR')
