@@ -98,6 +98,12 @@ dictionary = {
         ("", "Disable hand fix"): "禁用手掌修正",
         ("", "Disable toe position constraint"): "禁用脚趾位置约束",
         ("", "Weight bone parent fix"): "权重骨骼父级修正",
+        ("", "thumb"): "拇指",
+        ("", "index"): "食指",
+        ("", "middle"): "中指",
+        ("", "ring"): "无名指",
+        ("", "pinky"): "小指",
+        ("", "Enable Finger IK"): "启用手指IK",
     }
 }
 

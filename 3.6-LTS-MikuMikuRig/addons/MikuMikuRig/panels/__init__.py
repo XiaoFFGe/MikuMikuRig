@@ -115,6 +115,13 @@ class MMR_property(bpy.types.PropertyGroup):
         description="生成控制器"
     )
 
+    # 启用手指IK
+    Enable_finger_IK: BoolProperty(
+        name="Enable Finger IK",
+        default=True,
+        description="启用手指IK"
+    )
+
     # 权重骨骼父级修正
     Weight_bone_parent_fix: BoolProperty(
         name="Weight bone parent fix",

@@ -37,8 +37,6 @@ class polartargetOperator(bpy.types.Operator):
 
         return {'FINISHED'}
 
-# 接着生成
-
 # 生成控制器
 class mmrrigOperator(bpy.types.Operator):
     '''Build a controller'''
@@ -66,6 +64,8 @@ class mmrrigOperator(bpy.types.Operator):
     )
 
     def execute(self, context: bpy.types.Context):
+
+        bpy.ops.object.mode_set(mode='OBJECT') # 切换到物体模式
 
         mmr = context.object.mmr
 
@@ -280,7 +280,9 @@ class mmrrigOperator(bpy.types.Operator):
                 A_bone.length = A_bone.length * length
 
             # 退出编辑模式
-            bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.ops.object.mode_set(mode='POSE')
+
+            return True
 
         def move_bone_a_to_b(d_armature_name, c_armature_name, bone_a_name, bone_b_name, A_bone_Z_location = False):
 
@@ -447,6 +449,7 @@ class mmrrigOperator(bpy.types.Operator):
 
             bone1_head = bone1.head # 头坐标
             bone1_tail = bone1.tail # 尾坐标
+
             bone2_length = bone2.length # 长度
             bone1_length = bone1.length # 长度
 
@@ -461,7 +464,6 @@ class mmrrigOperator(bpy.types.Operator):
                     k = bone1_length / length  # 缩放因子
                 else:
                     k = bone2_length / length  # 缩放因子
-
 
                 # 生成两种方向的尾坐标
                 scaled_dir1 = direction * k  # 原方向
@@ -480,10 +482,12 @@ class mmrrigOperator(bpy.types.Operator):
                     bone2.tail = tail2_case2
                     print(f"Case 2 尾坐标: {np.round(tail2_case2, 4)}, 距离: {np.round(distance_case2, 4)}")
 
+            if scale:
+                bone2.length = bone2_length
+
             if not distance:
                 bone2.tail = bone1_head
-                if scale:
-                    bone2.length = bone2_length
+                print(f"对齐 {bone_name2} 尾坐标为 {np.round(bone2.tail, 4)}")
 
         def Calculate_intersection_angle(Arm, a_bone, b_bone):
 
@@ -604,30 +608,42 @@ class mmrrigOperator(bpy.types.Operator):
             for key, value in config.items():
                 print(f"键名: {key}, 值: {value}")
 
-                if check_keywords(value, ["thumb", "index", "middle", "ring", "pinky"]):
-                    finger_bone.append(value)
-
                 # 调用函数
-                align_bones(value, RIG, key, mmd_arm)
+                return_value = align_bones(value, RIG, key, mmd_arm)
+
+                if return_value:
+                    arm_number += 1
+
+            # 遍历字典的键值
+            for key, value in config.items():
+                # 眼睛
+                if value == "eye.L" or value == "eye.R":
+                    move_bone_a_to_b(RIG.name, mmd_arm.name, value, key)
 
                 if value == "spine.006":
                     # 移动到正确位置
                     move_bone_a_to_b(RIG.name, mmd_arm.name, "face", key)
-                    # 遍历字典的键值
-                    for key, value in config.items():
-                        # 眼睛
-                        if value == "eye.L" or value == "eye.R":
-                            move_bone_a_to_b(RIG.name, mmd_arm.name, value, key)
 
-                if align_bones(value, RIG, key, mmd_arm, count=True):
-                    arm_number += 1
-                    # 激活物体      
-                    bpy.context.view_layer.objects.active = RIG
-                    # 选择物体
-                    RIG.select_set(True)
-                    # 应用
-                    bpy.ops.object.mode_set(mode='POSE')
-                    bpy.ops.pose.armature_apply(selected=False)
+                # 手指
+                if check_keywords(value, ["thumb", "index", "middle", "ring", "pinky"]):
+                    finger_bone.append(value)
+
+            # 更新场景
+            bpy.context.view_layer.update()
+            # 激活物体
+            bpy.context.view_layer.objects.active = RIG
+            # 选择物体
+            RIG.select_set(True)
+            bpy.ops.object.mode_set(mode='POSE')  # 切换到姿势模式
+            # 应用
+            bpy.ops.pose.armature_apply(selected=False)
+
+            # 对齐尾坐标
+            calculate_tail_coordinates('spine.004', 'spine.003', RIG.name, scale=False)
+
+            # 对齐脚XY平面
+            move_bone_a_to_b(RIG.name, RIG.name, "heel.02.L", 'foot.L', A_bone_Z_location=True)
+            move_bone_a_to_b(RIG.name, RIG.name, "heel.02.R", 'foot.R', A_bone_Z_location=True)
 
             # 手掌修正
             if not mmd_arm.mmr.Disable_hand_fix:
@@ -637,15 +653,6 @@ class mmrrigOperator(bpy.types.Operator):
                             calculate_tail_coordinates('forearm.L', 'hand.L', RIG.name,distance=True)
                         else:
                             calculate_tail_coordinates('forearm.R', 'hand.R', RIG.name,distance=True)
-
-                if value == 'spine.003':
-                    calculate_tail_coordinates('spine.004', 'spine.003', RIG.name, scale=False)
-
-                if 'foot' in value:
-                    if determine_side(value):
-                        move_bone_a_to_b(RIG.name, RIG.name, "heel.02.L", value, A_bone_Z_location=True)
-                    else:
-                        move_bone_a_to_b(RIG.name, RIG.name, "heel.02.R", value, A_bone_Z_location=True)
 
             palm_aligs = {
                 'palm.01.L': 'f_index.01.L',
@@ -806,6 +813,28 @@ class mmrrigOperator(bpy.types.Operator):
             bpy.context.view_layer.objects.active = RIG
             bpy.ops.object.mode_set(mode='POSE')  # 切到姿态模式
 
+            f_pins_ik = [
+                'thumb.01.L',
+                'thumb.01.R',
+                'f_index.01.L',
+                'f_index.01.R',
+                'f_middle.01.L',
+                'f_middle.01.R',
+                'f_ring.01.L',
+                'f_ring.01.R',
+                'f_pinky.01.L',
+                'f_pinky.01.R',
+            ]
+
+            # 启用手指IK
+            for name in f_pins_ik:
+                bone = RIG.pose.bones.get(name)
+                if bone:
+                    if mmr.Enable_finger_IK:
+                        bone.rigify_parameters.make_extra_ik_control = True
+                    else:
+                        bone.rigify_parameters.make_extra_ik_control = False
+
             # 禁用脚趾位置约束
             if mmd_arm.mmr.Disable_toe_position_constraint:
 
@@ -823,6 +852,7 @@ class mmrrigOperator(bpy.types.Operator):
             RIG.mmr.presets = mmd_arm.mmr.presets
             RIG.mmr.Import_presets = mmd_arm.mmr.Import_presets
             RIG.mmr.json_filepath = mmd_arm.mmr.json_filepath
+            RIG.mmr.Enable_finger_IK = mmd_arm.mmr.Enable_finger_IK
             RIG.mmr.Generate_controllers = True
             RIG.mmr.mmd_Armature = mmd_arm
             mmd_arm.matrix_world = mmd_arm_matrix  # 还原位置
@@ -931,6 +961,8 @@ class mmrrigOperator(bpy.types.Operator):
 
         rigify = bpy.context.active_object
         rigify.name = 'RIG-' + mmd_arm.name
+
+        rigify.matrix_world = RIG.matrix_world # 吸附位置
 
         # 设置父子级
         for key, value in config.items():
@@ -1055,6 +1087,7 @@ class mmrrigOperator(bpy.types.Operator):
 
             # 转换为局部空间
             new_bone_matrix = new_bone_world_matrix @ rigify.matrix_world.inverted()
+
             new_bone.matrix = new_bone_matrix
 
             bpy.ops.object.mode_set(mode='POSE')
@@ -1272,13 +1305,24 @@ class mmrrigOperator(bpy.types.Operator):
         # 形状
         bpy.ops.object.mode_set(mode='POSE')
         pose_bones = rigify.pose.bones
+        data_bones = rigify.data.bones
+
+        t_bone = data_bones.get('torso_root')
+        t_bone.color.palette = 'CUSTOM'
+        t_bone.color.custom.active = (data_bones.get('torso')).color.custom.active
+        t_bone.color.custom.normal = (data_bones.get('torso')).color.custom.normal
+        t_bone.color.custom.select = (data_bones.get('torso')).color.custom.select
+
         t_bone = pose_bones.get('torso_root')
-        t_bone.color.palette = 'THEME09'
+        t_bone.color.palette = 'CUSTOM'
+        t_bone.color.custom.active = (pose_bones.get('torso')).color.custom.active
+        t_bone.color.custom.normal = (pose_bones.get('torso')).color.custom.normal
+        t_bone.color.custom.select = (pose_bones.get('torso')).color.custom.select
+
         t_bone.custom_shape = bpy.data.objects["WGT-RIG-" + RIG.name + "_root"]
         # 加入集合
-        data_bones = rigify.data.bones
         t_bone = data_bones.get('torso_root')
-        rigify.data.collections_all['Torso'].assign(t_bone)
+        rigify.data.collections_all['Torso (Redirect)'].assign(t_bone)
 
         rigify.show_in_front = True # 在前面
 
@@ -1289,7 +1333,7 @@ class mmrrigOperator(bpy.types.Operator):
             rigify.pose.bones["torso"]["neck_follow"] = 1
             rigify.pose.bones["torso"]["head_follow"] = 1
 
-        is_gto = ['Face (Primary)', 'Face (Secondary)', 'Torso (Tweak)', 'Fingers (Detail)', 'Arm.L (FK)', 'Arm.R (FK)',
+        is_gto = ['Face (Primary)', 'Face (Secondary)', 'Torso (Tweak)', 'Fingers (Detail)', 'Fingers (IK)', 'Arm.L (FK)', 'Arm.R (FK)',
                   'Arm.L (Tweak)', 'Arm.R (Tweak)', 'Leg.L (FK)', 'Leg.R (FK)', 'Leg.L (Tweak)', 'Leg.R (Tweak)']
 
         # 隐藏骨骼集合

@@ -13,3 +13,6 @@
 
 视频演示：
 https://www.bilibili.com/video/BV1FnzpYKE8R
+
+MMR插件基础使用教学：
+https://www.bilibili.com/opus/1167803398842482693?spm_id_from=333.1387.0.0

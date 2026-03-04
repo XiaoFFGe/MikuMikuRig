@@ -114,7 +114,8 @@ class IK_FK_fxer(bpy.types.Panel):
 
         cx_obj = context.active_object
 
-        row = layout.row()
+        if cx_obj.pose.bones.get("upper_arm_parent.L") and cx_obj.pose.bones.get("upper_arm_parent.R"):
+            row = layout.row()
 
         for bone in cx_obj.pose.bones:
             if bone.name == "upper_arm_parent.L":
@@ -124,16 +125,102 @@ class IK_FK_fxer(bpy.types.Panel):
             if bone.name == "upper_arm_parent.R":
                 row.prop(bone, '["IK_FK"]', text=i18n('Arm.R'))
 
-        row = layout.row()
+        if cx_obj.pose.bones.get("thigh_parent.L") and cx_obj.pose.bones.get("thigh_parent.R"):
+            row = layout.row()
 
         for bone in cx_obj.pose.bones:
             if bone.name == "thigh_parent.L":
                 row.prop(bone, '["IK_FK"]', text=i18n('Leg.L'))
 
-
         for bone in cx_obj.pose.bones:
             if bone.name == "thigh_parent.R":
                 row.prop(bone, '["IK_FK"]', text=i18n('Leg.R'))
+
+# 手指 FK-IK
+class Finger_IK_FK_fxer(bpy.types.Panel):
+    bl_label = "MMR Finger FK-IK"
+    bl_idname = "Q_PT_MMR_Finger_FK_IK_0"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    # name of the side panel
+    bl_category = "Item"
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        # 检查是否有活动对象
+        if context.active_object is not None:
+            # 检查type是否为ARMATURE
+            if context.active_object.type == 'ARMATURE':
+                # 检查名称是否以"RIG"开头
+                if context.active_object.name.startswith("RIG"):
+                    if bpy.context.active_pose_bone is not None:
+                        if bpy.context.active_pose_bone.name.startswith("f_"):
+                            return True
+                        if bpy.context.active_pose_bone.name.startswith("thumb"):
+                            return True
+        return False
+
+    def draw(self, context: bpy.types.Context):
+        layout = self.layout
+        cx_obj = context.active_object
+
+        if cx_obj.pose.bones.get("thumb.01_ik.L") and cx_obj.pose.bones.get("thumb.01_ik.R"):
+            layout.row()
+            row = layout.row()
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "thumb.01_ik.L":
+                row.prop(bone, '["FK_IK"]', text=i18n('thumb')+'.L')
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "thumb.01_ik.R":
+                row.prop(bone, '["FK_IK"]', text=i18n('thumb')+'.R')
+
+        if cx_obj.pose.bones.get("f_index.01_ik.L") and cx_obj.pose.bones.get("f_index.01_ik.R"):
+            row = layout.row()
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "f_index.01_ik.L":
+                row.prop(bone, '["FK_IK"]', text=i18n('index')+'.L')
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "f_index.01_ik.R":
+                row.prop(bone, '["FK_IK"]', text=i18n('index')+'.R')
+
+        if cx_obj.pose.bones.get("f_middle.01_ik.L") and cx_obj.pose.bones.get("f_middle.01_ik.R"):
+            row = layout.row()
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "f_middle.01_ik.L":
+                row.prop(bone, '["FK_IK"]', text=i18n('middle')+'.L')
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "f_middle.01_ik.R":
+                row.prop(bone, '["FK_IK"]', text=i18n('middle')+'.R')
+
+        if cx_obj.pose.bones.get("f_ring.01_ik.L") and cx_obj.pose.bones.get("f_ring.01_ik.R"):
+            row = layout.row()
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "f_ring.01_ik.L":
+                row.prop(bone, '["FK_IK"]', text=i18n('ring')+'.L')
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "f_ring.01_ik.R":
+                row.prop(bone, '["FK_IK"]', text=i18n('ring')+'.R')
+
+        if cx_obj.pose.bones.get("f_pinky.01_ik.L") and cx_obj.pose.bones.get("f_pinky.01_ik.R"):
+            row = layout.row()
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "f_pinky.01_ik.L":
+                row.prop(bone, '["FK_IK"]', text=i18n('pinky')+'.L')
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "f_pinky.01_ik.R":
+                row.prop(bone, '["FK_IK"]', text=i18n('pinky')+'.R')
+
+
 
 # 控制器选项面板
 class MMD_Rig_Opt(bpy.types.Panel):
@@ -207,8 +294,13 @@ class MMD_Rig_Opt(bpy.types.Panel):
                     # 手指选项
                     layout.prop(mmr, "Finger_options", text=i18n("Finger options"))
                     if mmr.Finger_options:
+                        # 修复手指尖端骨骼
                         layout.prop(mmr, "f_pin", text=i18n("Finger tip bone repair"))
-                        layout.prop(mmr, "Thumb_twist_aligns_with_the_world_Z_axis", text=i18n("Thumb twist aligns with the world Z-axis"))
+                        # 启用手指IK
+                        layout.prop(mmr, "Enable_finger_IK", text=i18n("Enable Finger IK"))
+                        # 拇指旋转与世界Z轴对齐
+                        layout.prop(mmr, "Thumb_twist_aligns_with_the_world_Z_axis",
+                                    text=i18n("Thumb twist aligns with the world Z-axis"))
 
                     # 使用ITASC解算器
                     layout.prop(mmr, "Use_ITASC_solver", text=i18n("Use ITASC solver"))
