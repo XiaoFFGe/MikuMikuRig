@@ -1,6 +1,7 @@
 # MikuMikuRig
 
 【Blender 自制插件】傻瓜式MMD K帧插件 MikuMikuRig
+
 [Blender Homemade Plugin] Foolproof MMD Keyframe Plugin MikuMikuRig
 
 <img width="617" height="829" alt="屏幕截图 2026-02-09 114029" src="https://github.com/user-attachments/assets/08400b7d-e782-4d0c-97f3-99aa8b25f480" />
@@ -18,21 +19,29 @@ This version of the MMR plugin is a complete rewrite. It is different from the v
 ## 功能 Functions
 
 一键为任何骨骼生成Rigify控制器.
+
 Generate Rigify controllers for any skeleton with one click.
 
 导入导出动作.
+
 Import and export actions.
 
 更好的MMD物理.
+
 Better MMD Physics.
 
 表演面板(更好的形态键).
+
 Performance panel (better Morph key).
 
 视频演示：
+
 Video demonstration:
+
 https://www.bilibili.com/video/BV1FnzpYKE8R
 
 MMR插件基础使用教学：
+
 Basic Tutorial on Using the MMR Plugin:
+
 https://www.bilibili.com/opus/1167803398842482693?spm_id_from=333.1387.0.0
