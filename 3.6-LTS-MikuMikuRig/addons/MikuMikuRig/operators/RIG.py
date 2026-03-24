@@ -29,7 +29,7 @@ class polartargetOperator(bpy.types.Operator):
 
     def execute(self, context: bpy.types.Context):
 
-        self.report({'INFO'}, '正在重构此功能，敬请期待！')
+        self.report({'ERROR'}, 'blender v3 不支持此功能')
         mmd_arm = context.view_layer.objects.active
 
         print(mmd_arm.data.bones.items())

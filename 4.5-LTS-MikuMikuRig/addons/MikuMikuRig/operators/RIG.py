@@ -29,11 +29,47 @@ class polartargetOperator(bpy.types.Operator):
 
     def execute(self, context: bpy.types.Context):
 
-        self.report({'INFO'}, '正在重构此功能，敬请期待！')
-        mmd_arm = context.view_layer.objects.active
+        mmd_arm = context.object
 
-        print(mmd_arm.data.bones.items())
+        if mmd_arm.data.collections.get('其他') is None:
+            other_collection = mmd_arm.data.collections.new(name='其他')
+            other_collection.is_visible = False
+        else:
+            other_collection = mmd_arm.data.collections.get('其他')
 
+        # 遍历Groups列表
+        Groups = ['Root', 'センター', 'ＩＫ', '体(上)', '腕', '指', '体(下)', '足']
+
+        Groups_Color = {
+            'Root': 'THEME09',
+            'センター': 'THEME09',
+            'ＩＫ': 'THEME01',
+            '体(上)': 'THEME04',
+            '腕': 'THEME03',
+            '指': 'THEME04',
+            '体(下)': 'THEME04',
+            '足': 'THEME03',
+        }
+
+        group_bones = []
+
+        for group in mmd_arm.data.collections:
+            if group.name in Groups:
+                group.is_visible = True
+            else:
+                group.is_visible = False
+
+            for bone in group.bones:
+                group_bones.append(bone.name)
+
+        for bone in mmd_arm.data.bones:
+            if not bone.name in group_bones:
+                other_collection.assign(bone)
+
+        for k, v in Groups_Color.items():
+
+            for bone in (mmd_arm.data.collections.get(k)).bones:
+                bone.color.palette = v
 
         return {'FINISHED'}
 

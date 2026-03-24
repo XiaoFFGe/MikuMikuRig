@@ -16,6 +16,7 @@ from addons.MikuMikuRig.operators.mmd_rig_physics import MMD_RIG_PHYSICS_BUILD
 from addons.MikuMikuRig.operators.redirect import MMR_redirect, MMR_Import_VMD
 from addons.MikuMikuRig.operators.reload import MMR_OT_OpenPresetFolder
 from common.i18n.i18n import i18n
+from ....common.types.framework import reg_order
 
 # UL类
 class MMR_UL_key(bpy.types.UIList):
@@ -88,7 +89,6 @@ class MMR_key_Options(bpy.types.Panel):
     def poll(cls, context: bpy.types.Context):
         return context.active_object is not None
 
-
 # IK-FK
 class IK_FK_fxer(bpy.types.Panel):
     bl_label = "MMR IK-FK"
@@ -135,6 +135,34 @@ class IK_FK_fxer(bpy.types.Panel):
         for bone in cx_obj.pose.bones:
             if bone.name == "thigh_parent.R":
                 row.prop(bone, '["IK_FK"]', text=i18n('Leg.R'))
+
+# 手指 FK-IK
+class Finger_IK_FK_fxer(bpy.types.Panel):
+    bl_label = "MMR Finger FK-IK"
+    bl_idname = "Q_PT_MMR_Finger_FK_IK_0"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    # name of the side panel
+    bl_category = "Item"
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        # 检查是否有活动对象
+        if context.active_object is not None:
+            # 检查type是否为ARMATURE
+            if context.active_object.type == 'ARMATURE':
+                # 检查名称是否以"RIG"开头
+                if context.active_object.name.startswith("RIG"):
+                    if bpy.context.active_pose_bone is not None:
+                        if bpy.context.active_pose_bone.name.startswith("f_"):
+                            return True
+                        if bpy.context.active_pose_bone.name.startswith("thumb"):
+                            return True
+        return False
+
+    def draw(self, context: bpy.types.Context):
+        layout = self.layout
+        cx_obj = context.active_object
 
         if cx_obj.pose.bones.get("thumb.01_ik.L") and cx_obj.pose.bones.get("thumb.01_ik.R"):
             layout.row()
@@ -193,7 +221,9 @@ class IK_FK_fxer(bpy.types.Panel):
                 row.prop(bone, '["FK_IK"]', text=i18n('pinky')+'.R')
 
 
+
 # 控制器选项面板
+@reg_order(0)
 class MMD_Rig_Opt(bpy.types.Panel):
     bl_label = "Controller options"
     bl_idname = "SCENE_PT_MMR_Rig_0"
@@ -270,7 +300,8 @@ class MMD_Rig_Opt(bpy.types.Panel):
                         # 启用手指IK
                         layout.prop(mmr, "Enable_finger_IK", text=i18n("Enable Finger IK"))
                         # 拇指旋转与世界Z轴对齐
-                        layout.prop(mmr, "Thumb_twist_aligns_with_the_world_Z_axis", text=i18n("Thumb twist aligns with the world Z-axis"))
+                        layout.prop(mmr, "Thumb_twist_aligns_with_the_world_Z_axis",
+                                    text=i18n("Thumb twist aligns with the world Z-axis"))
 
                     # 使用ITASC解算器
                     layout.prop(mmr, "Use_ITASC_solver", text=i18n("Use ITASC solver"))
@@ -370,8 +401,8 @@ class Set_constraints(bpy.types.Panel):
         for i in range(0, 3):
             row.prop(mmr_bone, "Set_constraints", index=i, text=str(names[i]), toggle=True)
 
-
 # 骨骼重定向
+@reg_order(1)
 class MMD_Rig_Opt_Polar(bpy.types.Panel):
     bl_label = "Bone retargeting"
     bl_idname = "SCENE_PT_MMR_Rig_1"
@@ -379,12 +410,12 @@ class MMD_Rig_Opt_Polar(bpy.types.Panel):
     bl_region_type = 'UI'
     # name of the side panel
     bl_category = "MMR"
-    bl_parent_id = "SCENE_PT_MMR_Rig_0"
 
     def draw(self, context: bpy.types.Context):
         layout = self.layout
         mmr = context.object.mmr
         layout.prop(mmr, "py_presets", text=i18n('presets'))
+        layout.prop(mmr, "frame_step", text=i18n('Bake Frame Step'))
         layout.operator(MMR_redirect.bl_idname, icon='OUTLINER_DATA_ARMATURE')
         layout.operator(MMR_Import_VMD.bl_idname, icon='OUTLINER_OB_ARMATURE')
         layout.operator(mmrexportvmdactionsOperator.bl_idname, text="Export VMD actions", icon='ANIM')
@@ -393,44 +424,44 @@ class MMD_Rig_Opt_Polar(bpy.types.Panel):
         if mmr.boolean:
             layout.prop(mmr, "Manually_adjust_FBX_movements", text=i18n("Manually adjust FBX movements"))
             layout.prop(mmr, "Manually_adjust_VMD_movements", text=i18n("Manually adjust VMD movements"))
+            layout.prop(mmr, "IK_import_bool", text=i18n("Enable VMD IK import（Mandatory）"))
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
         return context.active_object is not None
 
-# class MMD_Arm_Opt(bpy.types.Panel):
-#     bl_label = "MMD tool"
-#     bl_idname = "SCENE_PT_MMR_Rig_2"
-#     bl_space_type = "VIEW_3D"
-#     bl_region_type = 'UI'
-#     # name of the side panel
-#     bl_category = "MMR"
-#     bl_parent_id = "SCENE_PT_MMR_Rig_0"
-#
-#     def draw(self, context: bpy.types.Context):
-#
-#         mmr = context.object.mmr
-#
-#         # 从上往下排列
-#         layout = self.layout
-#
-#         # 增加按钮大小并添加图标
-#         row = layout.row()
-#         row.scale_y = 1.2  # 这将使按钮的垂直尺寸加倍
-#         row.operator(polartargetOperator.bl_idname, text="Optimization MMD Armature", icon='BONE_DATA')
-#
-#     @classmethod
-#     def poll(cls, context: bpy.types.Context):
-#         return context.active_object is not None
+class MMD_Arm_Opt(bpy.types.Panel):
+    bl_label = "MMD tool"
+    bl_idname = "SCENE_PT_MMR_Rig_2"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    # name of the side panel
+    bl_category = "MMR"
+
+    def draw(self, context: bpy.types.Context):
+
+        mmr = context.object.mmr
+
+        # 从上往下排列
+        layout = self.layout
+
+        # 增加按钮大小并添加图标
+        row = layout.row()
+        row.scale_y = 1.2  # 这将使按钮的垂直尺寸加倍
+        row.operator(polartargetOperator.bl_idname, text="Optimization MMD Armature", icon='BONE_DATA')
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        return context.active_object is not None
 
 # 物理面板
+@reg_order(3)
 class Physics_Panel(bpy.types.Panel):
     bl_label = "Physics options"
     bl_idname = "SCENE_PT_MMR_Rig_3"
     bl_space_type = "VIEW_3D"
     bl_region_type = 'UI'
     bl_category = "MMR"
-    bl_parent_id = "SCENE_PT_MMR_Rig_0"
 
     __RIGID_SIZE_MAP = {
         "SPHERE": ("Radius",),

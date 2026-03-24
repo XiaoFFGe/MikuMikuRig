@@ -183,7 +183,7 @@ class MMR_redirect(bpy.types.Operator):
                       'ORG-forearm.R','ORG-forearm.L','ORG-shin.R','ORG-shin.L','ORG-toe.R','ORG-toe.L']  # 需要监控的骨骼名称
         START_FRAME = int(start_frame)  # 起始帧
         END_FRAME = int(end_frame)  # 结束帧
-        SCAN_PHASES = [100, 50, 25, 10, 5, 2, 1]  # 多级扫描相位
+        SCAN_PHASES = [25, 10, 5, 2, 1]  # 多级扫描相位
 
         # 获取骨架对象
         armature = bpy.data.objects.get(ARMATURE_NAME)
@@ -291,81 +291,7 @@ class MMR_redirect(bpy.types.Operator):
         else:
             print("未找到有效数据")
 
-        # 配置参数
-        ARMATURE_NAME = arm.name  # 骨架名称
-        BONE_NAMES = global_min_bones  # 涉及骨骼
-        START_FRAME = int(start_frame)  # 起始帧
-        END_FRAME = int(end_frame)  # 结束帧
-        ERROR = 0.05  # 允许的误差范围
-
-        z_values = []
-
-        # 获取骨架对象
-        arm_obj = bpy.data.objects.get(ARMATURE_NAME)
-        if not arm_obj:
-            raise ValueError(f"Armature '{ARMATURE_NAME}' not found")
-
-        # 确保在对象模式下更新骨骼矩阵
-        original_mode = bpy.context.object.mode
-        if original_mode != 'OBJECT':
-            bpy.ops.object.mode_set(mode='OBJECT')
-
-        # 遍历每一帧
-        for frame in range(START_FRAME, END_FRAME + 1):
-            # 设置当前帧
-            bpy.context.scene.frame_set(frame)
-            # 更新视图层以确保骨骼矩阵正确
-            bpy.context.view_layer.update()
-
-            # 遍历每个骨骼名称
-            for bone_name in BONE_NAMES:
-                pose_bone = arm_obj.pose.bones.get(bone_name)
-                if not pose_bone:
-                    print(f"Bone '{bone_name}' not found in armature")
-                    continue
-
-                # 计算骨骼的世界空间位置
-                bone_global_matrix = arm_obj.matrix_world @ pose_bone.matrix
-                global_z = bone_global_matrix.translation.z
-                z_values.append(global_z)
-
-        # 恢复原始模式
-        if original_mode != 'OBJECT':
-            bpy.ops.object.mode_set(mode=original_mode)
-
-        if not z_values:
-            print("No Z values collected")
-            return 0.0
-
-        # --- 分桶统计法 ---
-        bucket_width = ERROR * 2  # 桶宽度为误差的两倍（覆盖全区间）
-        min_z = min(z_values)
-        max_z = max(z_values)
-
-        # 初始化分桶字典：键为桶编号，值为(点数总和, 点数)
-        buckets = {}
-        for z in z_values:
-            # 计算当前Z值所属的桶编号
-            bucket_key = int((z - min_z) // bucket_width)
-            if bucket_key not in buckets:
-                buckets[bucket_key] = [0.0, 0]  # [总和, 数量]
-            buckets[bucket_key][0] += z
-            buckets[bucket_key][1] += 1
-
-        # 找到点数最多的桶
-        max_count = 0
-        best_z = min_z  # 默认取最小值
-        for key in buckets:
-            total_z, count = buckets[key]
-            if count > max_count or (count == max_count and abs(total_z / count) < abs(best_z)):
-                max_count = count
-                # 计算该桶的平均高度
-                best_z = total_z / count
-
-        print(f"最佳Z值: {best_z:.6f}")
-        print(f"点数最多的桶: {max_count}")
-
-        root.matrix.translation.z = best_z  # 设置root的Z轴位置
+        root.matrix.translation.z = global_min_z  # 设置root的Z轴位置
 
         # 烘培动画
         bpy.ops.pose.select_all(action='DESELECT')  # 取消选择所有骨骼
@@ -378,8 +304,12 @@ class MMR_redirect(bpy.types.Operator):
                     bone.bone.select = True
                     break
 
-        bpy.ops.nla.bake(frame_start=int(start_frame), frame_end=int(end_frame), visual_keying=True, bake_types={'POSE'})
-
+        bpy.ops.nla.bake(frame_start=int(start_frame),
+                         frame_end=int(end_frame),
+                         visual_keying=True,
+                         bake_types={'POSE'},
+                         step=mmr.frame_step,
+                         )
         # 清空root变换
         root.location = (0, 0, 0)
         root.rotation_quaternion = (1, 0, 0, 0)
@@ -525,9 +455,9 @@ class MMR_Import_VMD(bpy.types.Operator):
         current_frame1 = bpy.context.scene.frame_current
 
         # 设置追加参数
-        filepath = os.path.join(blend_file_path, "Object", "MMR_leg_VMD_arm")
-        directory = os.path.join(blend_file_path, "Object")
-        filename = "MMR_leg_VMD_arm"
+        filepath = os.path.join(blend_file_path, "Collection", "MMR_leg_VMD")
+        directory = os.path.join(blend_file_path, "Collection")
+        filename = "MMR_leg_VMD"
 
         # 执行追加操作
         if bpy.data.objects.get('MMR_leg_VMD_arm') is None:
@@ -654,6 +584,20 @@ class MMR_Import_VMD(bpy.types.Operator):
                                          files=[{"name": file_name, "name": file_name}],
                                          directory=new_path1)
 
+        if mmr.IK_import_bool:
+            subtarget = ['つま先ＩＫ.L', 'つま先ＩＫ.R', '足ＩＫ.R', '足ＩＫ.L']
+            # 遍历骨骼
+            for bone in fbx_arm.pose.bones:
+                # 遍历骨骼约束
+                for constraint in bone.constraints:
+                    # 类型是否为IK
+                    if constraint.type == 'IK':
+                        for s in subtarget:
+                            if constraint.subtarget == s:
+                                # 设置影响值为0
+                                constraint.influence = 1.0
+                                print(f"已将骨骼 '{bone.name}' 的IK约束影响值设置为1.0")
+
         # fbx_arm 移动到 arm 的位置
         fbx_arm.matrix_world.translation = arm.matrix_world.translation
 
@@ -718,7 +662,7 @@ class MMR_Import_VMD(bpy.types.Operator):
                       'ORG-forearm.R','ORG-forearm.L','ORG-shin.R','ORG-shin.L','ORG-toe.R','ORG-toe.L']  # 需要监控的骨骼名称
         START_FRAME = int(start_frame)  # 起始帧
         END_FRAME = int(end_frame)  # 结束帧
-        SCAN_PHASES = [100, 50, 25, 10, 5, 2, 1]  # 多级扫描相位
+        SCAN_PHASES = [25, 10, 5, 2, 1]  # 多级扫描相位
 
         # 获取骨架对象
         armature = bpy.data.objects.get(ARMATURE_NAME)
@@ -826,81 +770,7 @@ class MMR_Import_VMD(bpy.types.Operator):
         else:
             print("未找到有效数据")
 
-        # 配置参数
-        ARMATURE_NAME = arm.name  # 骨架名称
-        BONE_NAMES = global_min_bones   # 涉及骨骼
-        START_FRAME = int(start_frame)  # 起始帧
-        END_FRAME = int(end_frame)  # 结束帧
-        ERROR = 0.05  # 允许的误差范围
-
-        z_values = []
-
-        # 获取骨架对象
-        arm_obj = bpy.data.objects.get(ARMATURE_NAME)
-        if not arm_obj:
-            raise ValueError(f"Armature '{ARMATURE_NAME}' not found")
-
-        # 确保在对象模式下更新骨骼矩阵
-        original_mode = bpy.context.object.mode
-        if original_mode != 'OBJECT':
-            bpy.ops.object.mode_set(mode='OBJECT')
-
-        # 遍历每一帧
-        for frame in range(START_FRAME, END_FRAME + 1):
-            # 设置当前帧
-            bpy.context.scene.frame_set(frame)
-            # 更新视图层以确保骨骼矩阵正确
-            bpy.context.view_layer.update()
-
-            # 遍历每个骨骼名称
-            for bone_name in BONE_NAMES:
-                pose_bone = arm_obj.pose.bones.get(bone_name)
-                if not pose_bone:
-                    print(f"Bone '{bone_name}' not found in armature")
-                    continue
-
-                # 计算骨骼的世界空间位置
-                bone_global_matrix = arm_obj.matrix_world @ pose_bone.matrix
-                global_z = bone_global_matrix.translation.z
-                z_values.append(global_z)
-
-        # 恢复原始模式
-        if original_mode != 'OBJECT':
-            bpy.ops.object.mode_set(mode=original_mode)
-
-        if not z_values:
-            print("No Z values collected")
-            return 0.0
-
-        # --- 分桶统计法 ---
-        bucket_width = ERROR * 2  # 桶宽度为误差的两倍（覆盖全区间）
-        min_z = min(z_values)
-        max_z = max(z_values)
-
-        # 初始化分桶字典：键为桶编号，值为(点数总和, 点数)
-        buckets = {}
-        for z in z_values:
-            # 计算当前Z值所属的桶编号
-            bucket_key = int((z - min_z) // bucket_width)
-            if bucket_key not in buckets:
-                buckets[bucket_key] = [0.0, 0]  # [总和, 数量]
-            buckets[bucket_key][0] += z
-            buckets[bucket_key][1] += 1
-
-        # 找到点数最多的桶
-        max_count = 0
-        best_z = min_z  # 默认取最小值
-        for key in buckets:
-            total_z, count = buckets[key]
-            if count > max_count or (count == max_count and abs(total_z / count) < abs(best_z)):
-                max_count = count
-                # 计算该桶的平均高度
-                best_z = total_z / count
-
-        print(f"最佳Z值: {best_z:.6f}")
-        print(f"点数最多的桶: {max_count}")
-
-        root.matrix.translation.z = best_z  # 设置root的Z轴位置
+        root.matrix.translation.z = global_min_z  # 设置root的Z轴位置
 
         # 烘培动画
         bpy.ops.pose.select_all(action='DESELECT')  # 取消选择所有骨骼
@@ -913,7 +783,12 @@ class MMR_Import_VMD(bpy.types.Operator):
                     bone.bone.select = True
                     break
 
-        bpy.ops.nla.bake(frame_start=int(start_frame), frame_end=int(end_frame), visual_keying=True, bake_types={'POSE'})
+        bpy.ops.nla.bake(frame_start=int(start_frame),
+                         frame_end=int(end_frame),
+                         visual_keying=True,
+                         bake_types={'POSE'},
+                         step=mmr.frame_step,
+                         )
 
         # 清空root变换
         root.location = (0, 0, 0)
@@ -953,6 +828,8 @@ class MMR_Import_VMD(bpy.types.Operator):
         context.area.type = area_type
 
         bpy.data.objects.remove(fbx_arm)  # 删除
+        bpy.data.objects.remove(bpy.data.objects.get("MMR_leg_VMD"))  # 删除
+        bpy.data.collections.remove(bpy.data.collections.get("MMR_leg_VMD"))  # 删除集合
 
         # 恢复'torso_root'的变换
         torso_root.location = torso_root_copy["location"]

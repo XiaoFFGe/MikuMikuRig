@@ -19,118 +19,123 @@ class Add_Damping_Tracking(bpy.types.Operator):
         # 获取当前活动对象和骨骼
         obj = bpy.context.active_object
 
-        # 获取活动骨骼
-        active_bone = obj.data.bones.active
+        # 获取选中骨骼列表
+        selected_bones = [bone for bone in obj.pose.bones if bone.select]
 
-        # 切换到编辑模式获取骨骼位置数据
-        current_mode = bpy.context.object.mode
+        for bone in selected_bones:
 
-        # 获取MMR属性
-        mmr = obj.mmr
+            # 获取活动骨骼
+            active_bone = obj.data.bones.get(bone.name)
 
-        def get_bone_chain():
+            # 切换到编辑模式获取骨骼位置数据
+            current_mode = bpy.context.object.mode
 
-            if not obj or obj.type != 'ARMATURE':
-                return []
+            # 获取MMR属性
+            mmr = obj.mmr
 
-            if not active_bone:
-                return []
+            def get_bone_chain():
 
-            bpy.ops.object.mode_set(mode='EDIT')
+                if not obj or obj.type != 'ARMATURE':
+                    return []
 
-            try:
-                edit_bones = obj.data.edit_bones
-                bone_chain = []
-                current_bone = active_bone
+                if not active_bone:
+                    return []
 
-                while current_bone:  # 继续遍历直到没有下一个骨骼
-                    # 添加当前骨骼到链
-                    bone_chain.append(current_bone.name)
-
-                    # 在编辑模式中获取当前骨骼对象
-                    edit_bone = edit_bones[current_bone.name]
-                    tail_pos = (round(edit_bone.tail[0], 4),
-                                round(edit_bone.tail[1], 4),
-                                round(edit_bone.tail[2], 4))
-
-                    # 查找直接连接的下一个骨骼
-                    next_bone = None
-                    for child in current_bone.children:
-                        child_edit = edit_bones[child.name]
-                        head_pos = (round(child_edit.head[0], 4),
-                                    round(child_edit.head[1], 4),
-                                    round(child_edit.head[2], 4))
-
-                        if head_pos == tail_pos:
-                            next_bone = child
-                            break  # 找到第一个连接的子骨骼
-
-                    current_bone = next_bone  # 移动到下一个骨骼或结束循环
-
-                return bone_chain
-
-            finally:
-                # 恢复原始模式
-                bpy.ops.object.mode_set(mode=current_mode)
-
-        bone_chain = get_bone_chain()
-
-        if bone_chain:
-            # 检查是否有MMR-Target骨骼
-            if not any(bone.endswith("_MMR-Target") for bone in bone_chain):
-                # 切换到编辑模式
                 bpy.ops.object.mode_set(mode='EDIT')
-                edit_bones = obj.data.edit_bones
-                bone = edit_bones.get(bone_chain[-1])
-                if bone:
-                    # 新建一个骨骼
-                    new_name = bone.name + "_MMR-Target"
-                    new_bone = edit_bones.new(new_name)
-                    new_bone.head = bone.tail
-                    new_bone.tail.x = bone.tail.x
-                    new_bone.tail.y = bone.tail.y
-                    new_bone.tail.z = bone.tail.z + bone.length
-                    new_bone.roll = bone.roll
-                    new_bone.parent = bone
-                    bone_chain.append(new_bone.name)
-                    # 切换回原始模式
+
+                try:
+                    edit_bones = obj.data.edit_bones
+                    bone_chain = []
+                    current_bone = active_bone
+
+                    while current_bone:  # 继续遍历直到没有下一个骨骼
+                        # 添加当前骨骼到链
+                        bone_chain.append(current_bone.name)
+
+                        # 在编辑模式中获取当前骨骼对象
+                        edit_bone = edit_bones[current_bone.name]
+                        tail_pos = (round(edit_bone.tail[0], 4),
+                                    round(edit_bone.tail[1], 4),
+                                    round(edit_bone.tail[2], 4))
+
+                        # 查找直接连接的下一个骨骼
+                        next_bone = None
+                        for child in current_bone.children:
+                            child_edit = edit_bones[child.name]
+                            head_pos = (round(child_edit.head[0], 4),
+                                        round(child_edit.head[1], 4),
+                                        round(child_edit.head[2], 4))
+
+                            if head_pos == tail_pos:
+                                next_bone = child
+                                break  # 找到第一个连接的子骨骼
+
+                        current_bone = next_bone  # 移动到下一个骨骼或结束循环
+
+                    return bone_chain
+
+                finally:
+                    # 恢复原始模式
                     bpy.ops.object.mode_set(mode=current_mode)
-                    new_bone = obj.data.bones.get(new_name)
-                    new_bone.hide = True
 
-        # 列表长度
-        list_len = len(bone_chain)
+            bone_chain = get_bone_chain()
 
-        # 打印骨骼名称和索引
-        for index, bone_name in enumerate(bone_chain):
-            print(f"骨骼名称: {bone_name}, 索引: {index}")
+            if bone_chain:
+                # 检查是否有MMR-Target骨骼
+                if not any(bone.endswith("_MMR-Target") for bone in bone_chain):
+                    # 切换到编辑模式
+                    bpy.ops.object.mode_set(mode='EDIT')
+                    edit_bones = obj.data.edit_bones
+                    bone = edit_bones.get(bone_chain[-1])
+                    if bone:
+                        # 新建一个骨骼
+                        new_name = bone.name + "_MMR-Target"
+                        new_bone = edit_bones.new(new_name)
+                        new_bone.head = bone.tail
+                        new_bone.tail.x = bone.tail.x
+                        new_bone.tail.y = bone.tail.y
+                        new_bone.tail.z = bone.tail.z + bone.length
+                        new_bone.roll = bone.roll
+                        new_bone.parent = bone
+                        bone_chain.append(new_bone.name)
+                        # 切换回原始模式
+                        bpy.ops.object.mode_set(mode=current_mode)
+                        new_bone = obj.data.bones.get(new_name)
+                        new_bone.hide = True
 
-            if index == list_len - 1:  # 检查是否是最后一个元素
-                continue  # 跳过最后一个骨骼
+            # 列表长度
+            list_len = len(bone_chain)
 
-            # 获取骨骼
-            current_bone = obj.pose.bones.get(bone_name)
-            # 获取子骨骼
-            children_bones = obj.pose.bones.get(bone_chain[index + 1])
+            # 打印骨骼名称和索引
+            for index, bone_name in enumerate(bone_chain):
+                print(f"骨骼名称: {bone_name}, 索引: {index}")
 
-            # 先删除旧的约束
-            if current_bone:
-                for constraint in current_bone.constraints:
-                    if constraint.name == "MMR-阻尼追踪":
-                        current_bone.constraints.remove(constraint)
-                        break
-                    # 没有找到旧的约束，删除阻尼追踪类型的约束
-                    if constraint.type == 'DAMPED_TRACK':
-                        current_bone.constraints.remove(constraint)
-                        break
+                if index == list_len - 1:  # 检查是否是最后一个元素
+                    continue  # 跳过最后一个骨骼
 
-            if current_bone:
-                # 加阻尼追踪约束
-                constraint = current_bone.constraints.new(type='DAMPED_TRACK')
-                constraint.name = "MMR-阻尼追踪"
-                constraint.target = obj
-                constraint.subtarget = children_bones.name  # 子骨骼
-                constraint.influence = mmr.Softness
+                # 获取骨骼
+                current_bone = obj.pose.bones.get(bone_name)
+                # 获取子骨骼
+                children_bones = obj.pose.bones.get(bone_chain[index + 1])
+
+                # 先删除旧的约束
+                if current_bone:
+                    for constraint in current_bone.constraints:
+                        if constraint.name == "MMR-阻尼追踪":
+                            current_bone.constraints.remove(constraint)
+                            break
+                        # 没有找到旧的约束，删除阻尼追踪类型的约束
+                        if constraint.type == 'DAMPED_TRACK':
+                            current_bone.constraints.remove(constraint)
+                            break
+
+                if current_bone:
+                    # 加阻尼追踪约束
+                    constraint = current_bone.constraints.new(type='DAMPED_TRACK')
+                    constraint.name = "MMR-阻尼追踪"
+                    constraint.target = obj
+                    constraint.subtarget = children_bones.name  # 子骨骼
+                    constraint.influence = mmr.Softness
 
         return {'FINISHED'}
 
@@ -152,68 +157,73 @@ class Remove_Damping_Tracking(bpy.types.Operator):
         # 获取当前活动对象和骨骼
         obj = bpy.context.active_object
 
-        # 获取活动骨骼
-        active_bone = obj.data.bones.active
+        # 获取选中骨骼列表
+        selected_bones = [bone for bone in obj.pose.bones if bone.select]
 
-        current_mode = bpy.context.object.mode
+        for bone in selected_bones:
 
-        # 获取MMR属性
-        mmr = obj.mmr
+            # 获取活动骨骼
+            active_bone = obj.data.bones.get(bone.name)
 
-        def get_bone_chain():
+            current_mode = bpy.context.object.mode
 
-            if not obj or obj.type != 'ARMATURE':
-                return []
+            # 获取MMR属性
+            mmr = obj.mmr
 
-            if not active_bone:
-                return []
+            def get_bone_chain():
 
-            bpy.ops.object.mode_set(mode='EDIT')
+                if not obj or obj.type != 'ARMATURE':
+                    return []
 
-            try:
-                edit_bones = obj.data.edit_bones
-                bone_chain = []
-                current_bone = active_bone
+                if not active_bone:
+                    return []
 
-                while current_bone:  # 继续遍历直到没有下一个骨骼
-                    # 添加当前骨骼到链
-                    bone_chain.append(current_bone.name)
+                bpy.ops.object.mode_set(mode='EDIT')
 
-                    # 在编辑模式中获取当前骨骼对象
-                    edit_bone = edit_bones[current_bone.name]
-                    tail_pos = (round(edit_bone.tail[0], 4),
-                                round(edit_bone.tail[1], 4),
-                                round(edit_bone.tail[2], 4))
+                try:
+                    edit_bones = obj.data.edit_bones
+                    bone_chain = []
+                    current_bone = active_bone
 
-                    # 查找直接连接的下一个骨骼
-                    next_bone = None
-                    for child in current_bone.children:
-                        child_edit = edit_bones[child.name]
-                        head_pos = (round(child_edit.head[0], 4),
-                                    round(child_edit.head[1], 4),
-                                    round(child_edit.head[2], 4))
+                    while current_bone:  # 继续遍历直到没有下一个骨骼
+                        # 添加当前骨骼到链
+                        bone_chain.append(current_bone.name)
 
-                        if head_pos == tail_pos:
-                            next_bone = child
-                            break  # 找到第一个连接的子骨骼
+                        # 在编辑模式中获取当前骨骼对象
+                        edit_bone = edit_bones[current_bone.name]
+                        tail_pos = (round(edit_bone.tail[0], 4),
+                                    round(edit_bone.tail[1], 4),
+                                    round(edit_bone.tail[2], 4))
 
-                    current_bone = next_bone  # 移动到下一个骨骼或结束循环
+                        # 查找直接连接的下一个骨骼
+                        next_bone = None
+                        for child in current_bone.children:
+                            child_edit = edit_bones[child.name]
+                            head_pos = (round(child_edit.head[0], 4),
+                                        round(child_edit.head[1], 4),
+                                        round(child_edit.head[2], 4))
 
-                return bone_chain
+                            if head_pos == tail_pos:
+                                next_bone = child
+                                break  # 找到第一个连接的子骨骼
 
-            finally:
-                # 恢复原始模式
-                bpy.ops.object.mode_set(mode=current_mode)
+                        current_bone = next_bone  # 移动到下一个骨骼或结束循环
 
-        bone_chain = get_bone_chain()
+                    return bone_chain
 
-        # 删除阻尼追踪约束
-        for bone_name in bone_chain:
-            bone = obj.pose.bones.get(bone_name)
-            if bone:
-                for constraint in bone.constraints:
-                    bone.constraints.remove(constraint)
-                    break
+                finally:
+                    # 恢复原始模式
+                    bpy.ops.object.mode_set(mode=current_mode)
+
+            bone_chain = get_bone_chain()
+
+            # 删除阻尼追踪约束
+            for bone_name in bone_chain:
+                bone = obj.pose.bones.get(bone_name)
+                if bone:
+                    for constraint in bone.constraints:
+                        bone.constraints.remove(constraint)
+                        break
 
         return {'FINISHED'}
 

@@ -409,6 +409,15 @@ class MMR_property(bpy.types.PropertyGroup):
     physics_bool: BoolProperty(
         default=False,
     )
+    # 是否开启IK导入
+    IK_import_bool: BoolProperty(
+        default=False,
+        description="是否开启VMD动作IK导入"
+    )
+    frame_step: IntProperty(
+        default=2,
+        description="帧步长"
+    )
 
 class MMR_Weight_bone_parent_fix(bpy.types.PropertyGroup):
     key: StringProperty(name="Key", default="")
