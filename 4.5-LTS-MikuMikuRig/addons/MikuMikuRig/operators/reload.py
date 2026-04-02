@@ -15,6 +15,7 @@ from bpy.types import (
     UIList,
 )
 from addons.MikuMikuRig.panels import get_presets_directory
+from common.types.framework import reg_order
 
 
 def open_system_folder(path):
@@ -267,6 +268,7 @@ class MMR_OT_ExportJson(Operator):  # 导出JSON文件
         return {'RUNNING_MODAL'}
 
 # 主面板
+@reg_order(0)
 class MMR_PT_JsonEditor(Panel):
     bl_label = "MMR Preset Editor"
     bl_idname = "SCENE_PT_MMR_Rig_Fpt_Editor"
@@ -274,6 +276,7 @@ class MMR_PT_JsonEditor(Panel):
     bl_region_type = 'UI'
     bl_category = "MMR"
     bl_parent_id = "SCENE_PT_MMR_Rig_0"
+
 
     def draw(self, context):
         layout = self.layout

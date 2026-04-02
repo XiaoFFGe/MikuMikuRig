@@ -56,7 +56,6 @@ def get_file_list(extension):
         print(f"预设加载错误: {str(e)}")
         return []
 
-
 def make_presets_enum(extension):
     def update_file_list(self, context):
         files = get_file_list(extension)  # 传入扩展名参数
@@ -71,16 +70,21 @@ def make_presets_enum(extension):
                 cache["files_ic"][idx]
             ))
 
-        items.append((
-            "mmr_preset_editor",
-            "MMR预设编辑器",
-            "导入MMR预设编辑器中的预设"
-        ))
+        extension_jn = ['.json']
+
+        if extension in extension_jn:
+
+            items.append((
+                "mmr_preset_editor",
+                "MMR预设编辑器",
+                "导入MMR预设编辑器中的预设"
+            ))
 
         # 处理空列表情况
         return items or [("NONE", "无可用文件", "空预设")]
 
     return update_file_list
+
 
 class MMR_property(bpy.types.PropertyGroup):
     # 控制器预设（.json）

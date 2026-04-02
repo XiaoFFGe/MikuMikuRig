@@ -15,10 +15,9 @@ def get_presets_directory():
     new_path = os.path.dirname(os.path.dirname(__file__))
     return os.path.join(new_path, 'operators', 'presets')
 
-
 TARGET_FOLDER = get_presets_directory()  # 预设目录
 
-
+# 获取预设文件列表
 def get_file_list(extension):
     global file_cache
 
@@ -71,11 +70,15 @@ def make_presets_enum(extension):
                 cache["files_ic"][idx]
             ))
 
-        items.append((
-            "mmr_preset_editor",
-            "MMR预设编辑器",
-            "导入MMR预设编辑器中的预设"
-        ))
+        extension_jn = ['.json']
+
+        if extension in extension_jn:
+
+            items.append((
+                "mmr_preset_editor",
+                "MMR预设编辑器",
+                "导入MMR预设编辑器中的预设"
+            ))
 
         # 处理空列表情况
         return items or [("NONE", "无可用文件", "空预设")]
@@ -184,6 +187,7 @@ class MMR_property(bpy.types.PropertyGroup):
         default=False
     )
 
+    # 额外选项
     extras_enabled: BoolProperty(
         name="Extras Enabled",
         default=False
@@ -418,10 +422,27 @@ class MMR_property(bpy.types.PropertyGroup):
         default=2,
         description="帧步长"
     )
+    # mmd_tool额外选项
+    mmd_tool_extras: BoolProperty(
+        default=False,
+        description="mmd_tool额外选项"
+    )
 
 class MMR_Weight_bone_parent_fix(bpy.types.PropertyGroup):
     key: StringProperty(name="Key", default="")
     value: StringProperty(name="Value", default="")
+
+class MMR_Automatic_IK_bone_chain(bpy.types.PropertyGroup):
+    name: bpy.props.StringProperty(
+        name="",
+        default="",
+        description="自动IK的骨骼"
+    )
+    # 分割线
+    separator: bpy.props.BoolProperty(
+        default=False,
+        description="分割线"
+    )
 
 class MMR_bone_property(bpy.types.PropertyGroup):
 

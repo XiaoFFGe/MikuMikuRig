@@ -9,7 +9,9 @@ from addons.MikuMikuRig.operators.Physics import Add_Damping_Tracking, Remove_Da
 from addons.MikuMikuRig.operators.RIG import mmrexportvmdactionsOperator, MahyPdtOperator, \
     MMR_OT_Batch_Adjust_Shape_Key, MMR_OT_Insert_Keyframe, MMR_OT_Unselect_All_Key, \
     MMR_OT_Select_All_Key, MMR_OT_Select_Keyframe_Key, MMR_OT_Weight_Bone_Parent_Add, MMR_OT_Weight_Bone_Parent_Del, \
-    MMR_OT_Import_Default_Weight_Bone_Parent
+    MMR_OT_Import_Default_Weight_Bone_Parent, MMR_OT_Import_Default_Automatic_IK_Bone_Chain, \
+    MMR_OT_Add_Automatic_IK_Bone_Chain, MMR_OT_Remove_Automatic_IK_Bone_Chain, \
+    MMR_OT_Add_Automatic_IK_Bone_Chain_Separator, MMR_OT_Designated_Bone_Chain
 from addons.MikuMikuRig.operators.RIG import mmrrigOperator
 from addons.MikuMikuRig.operators.RIG import polartargetOperator
 from addons.MikuMikuRig.operators.mmd_rig_physics import MMD_RIG_PHYSICS_BUILD
@@ -52,6 +54,18 @@ class MMR_UL_weight_bone_parent_fix(bpy.types.UIList):
         # 右侧值输入
         row1 = layout.row(align=True)
         row1.prop(item, "value", text="", emboss=True)
+
+class MMR_UL_automatic_ik_bone_chain(bpy.types.UIList):
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+
+        row = layout.row(align=True)
+        if item.separator:
+            row.label(text=item.name)
+        else:
+            row.label(text="", icon='SORT_ASC')
+            row.prop(item, "name", text="", emboss=True)
+
 
 class MMR_key_Options(bpy.types.Panel):
 
@@ -450,6 +464,24 @@ class MMD_Arm_Opt(bpy.types.Panel):
         row = layout.row()
         row.scale_y = 1.2  # 这将使按钮的垂直尺寸加倍
         row.operator(polartargetOperator.bl_idname, text="Optimization MMD Armature", icon='BONE_DATA')
+        layout.prop(mmr, "mmd_tool_extras", text=i18n("Extras"), toggle=True,icon="PREFERENCES")
+
+        if mmr.mmd_tool_extras:
+
+            layout.label(text=i18n("Automatic IK bone chain:"))
+
+            row = layout.row()
+            row.template_list("MMR_UL_automatic_ik_bone_chain", "",
+                                 context.object, "mmr_automatic_ik_bone_chain",
+                                 context.object, "mmr_automatic_ik_bone_chain_index",
+                                 rows=5)
+
+            col = row.column()
+            col.operator(MMR_OT_Add_Automatic_IK_Bone_Chain.bl_idname,icon="ADD")
+            col.operator(MMR_OT_Remove_Automatic_IK_Bone_Chain.bl_idname,icon="REMOVE")
+            col.operator(MMR_OT_Import_Default_Automatic_IK_Bone_Chain.bl_idname,icon="FILE_REFRESH")
+            col.operator(MMR_OT_Add_Automatic_IK_Bone_Chain_Separator.bl_idname,icon="DRIVER_DISTANCE")
+            col.operator(MMR_OT_Designated_Bone_Chain.bl_idname,icon="GROUP_BONE")
 
     @classmethod
     def poll(cls, context: bpy.types.Context):

@@ -106,6 +106,7 @@ dictionary = {
         ("", "Enable Finger IK"): "启用手指IK",
         ("", "Enable VMD IK import（Mandatory）"): "VMD动作IK导入（强制）",
         ("", "Bake Frame Step"): "烘培帧步长",
+        ("", "Automatic IK bone chain:"): "自动IK骨骼链：",
 
     }
 }

@@ -38,18 +38,22 @@ class polartargetOperator(bpy.types.Operator):
             other_collection = mmd_arm.data.collections.get('其他')
 
         # 遍历Groups列表
-        Groups = ['Root', 'センター', 'ＩＫ', '体(上)', '腕', '指', '体(下)', '足']
+        Groups = ['Root', 'センター', 'ＩＫ', 'IK', '体(上)', '腕', '指', '体(下)', '足', '下半身', '体上', '上半身']
 
         Groups_Color = {
-            'Root': 'THEME09',
-            'センター': 'THEME09',
-            'ＩＫ': 'THEME01',
-            '体(上)': 'THEME04',
-            '腕': 'THEME03',
-            '指': 'THEME04',
-            '体(下)': 'THEME04',
-            '足': 'THEME03',
-        }
+        'Root':'THEME09',
+        'センター':'THEME09',
+        'ＩＫ':'THEME02',
+        'IK':'THEME02',
+        '体(上)':'THEME04',
+        '体上':'THEME04',
+        '上半身':'THEME04',
+        '腕':'THEME03',
+        '指':'THEME04',
+        '足':'THEME03',
+        '体(下)':'THEME04',
+        '下半身':'THEME04',
+    }
 
         group_bones = []
 
@@ -68,8 +72,104 @@ class polartargetOperator(bpy.types.Operator):
 
         for k, v in Groups_Color.items():
 
-            for bone in (mmd_arm.data.collections.get(k)).bones:
-                bone.color.palette = v
+            if mmd_arm.data.collections.get(k):
+                for bone in (mmd_arm.data.collections.get(k)).bones:
+                    bone.color.palette = v
+
+        def connect_bone(bone1, bone2):
+
+            if not bone1 and not bone2:
+                return False
+
+            bone2.parent = bone1
+            bone2.use_connect = True
+            print(f'连接 {bone1.name} 到 {bone2.name}')
+
+            if '捩' in bone1_name:
+                bone1_head = (rt.get(bone1_name))[0]
+                bone1.head = bone1_head
+
+                for names in fy_len_bones:
+                    if bone_name in names:
+                        for idx, name in enumerate(names):
+                            if bone_name == bone1_name:
+                                bone2_head = (rt.get(bone1_name))[1]
+                                bone2.head = bone2_head
+
+            return [bone1.name, bone2.name]
+
+        bone_names = []
+
+        arms = {}
+
+        fy_len_bones = []
+        fy_bone_name = []
+
+        items = mmd_arm.mmr_automatic_ik_bone_chain
+
+        # 列表长度是否为0
+        if len(items) == 0:
+            bpy.ops.mmr.import_default_automatic_ik_bone_chain()
+
+        for Item in items:
+            bone_names.append(Item.name)
+
+        if bone_names[-1] != '>---<':
+            bone_names.append('>---<')
+
+        print(f'自动IK骨骼链: {bone_names}')
+
+        for  idx, bone_name in enumerate(bone_names):
+            if bone_name != '>---<':
+                if bone_name != bone_names[-1]:
+                    if bone_names[idx+1] != '>---<':
+                        arms[bone_name] = bone_names[idx+1]
+
+                fy_bone_name.append(bone_name)
+                if bone_names[idx + 1] == '>---<':
+                    fy_len_bones.append(fy_bone_name)
+                    fy_bone_name = []
+
+        print(fy_len_bones)
+
+        connected_bones_name = []
+
+        bpy.ops.object.mode_set(mode='EDIT')
+
+        rt = {}
+
+        for names in fy_len_bones:
+            for idx, name in enumerate(names):
+                if name != names[-1]:
+                    if '捩' in name:
+                        bone_rt_head = (mmd_arm.data.edit_bones.get(name)).head.copy()
+                        bone_rt_head1 = (mmd_arm.data.edit_bones.get(names[idx+1])).head.copy()
+                        rt[name] = [bone_rt_head,bone_rt_head1]
+
+        # 连接骨骼
+        for bone1_name, bone2_name in arms.items():
+
+            bone1 = mmd_arm.data.edit_bones.get(bone1_name)
+            bone2 = mmd_arm.data.edit_bones.get(bone2_name)
+
+            connected_bone_name = connect_bone(bone1, bone2)
+
+            # 过滤重复的骨骼名称
+            if connected_bone_name:
+                for bone_name in connected_bone_name:
+                    if bone_name not in connected_bones_name:
+                        connected_bones_name.append(bone_name)
+
+        bpy.ops.object.mode_set(mode='POSE')
+
+        for bone_name in connected_bones_name:
+            bone = mmd_arm.pose.bones.get(bone_name)
+            if bone:
+                bone.lock_location = [False, False, False]
+
+        mmd_arm.pose.use_auto_ik = True
+
+        bpy.ops.pose.select_all(action='DESELECT')
 
         return {'FINISHED'}
 
@@ -338,7 +438,6 @@ class mmrrigOperator(bpy.types.Operator):
 
                 if bone_A and bone_B:
                     # 下面的注释是Ai写的,不能全信
-                    # 使用矩阵操作（如需同时处理位置和旋转）
                     # 1. 计算骨骼 B 的世界矩阵（包含位置、旋转、缩放）
                     world_matrix_b = c_armature_obj.matrix_world @ bone_B.matrix  # 补充此处定义
 
@@ -629,6 +728,26 @@ class mmrrigOperator(bpy.types.Operator):
                     return False
             return len(parts1) < len(parts2)
 
+        def connect_bone(bone1, bone2):
+
+            if not bone1 and not bone2:
+                return False
+
+            bone2.parent = bone1
+            bone2.use_connect = True
+            print(f'连接 {bone1.name} 到 {bone2.name}')
+
+            return [bone1.name, bone2.name]
+
+        def rig_apply(obj):
+            # 激活物体
+            bpy.context.view_layer.objects.active = obj
+            # 选择物体
+            obj.select_set(True)
+            bpy.ops.object.mode_set(mode='POSE')  # 切换到姿势模式
+            # 应用
+            bpy.ops.pose.armature_apply(selected=False)
+
         finger_bone = []
 
         arm_number = 0
@@ -640,39 +759,32 @@ class mmrrigOperator(bpy.types.Operator):
             # 缩放
             Size_settings(RIG,mmd_arm)
 
-            # 遍历字典的键值对并打印
             for key, value in config.items():
-                print(f"键名: {key}, 值: {value}")
+                if value == "spine.006":
+                    # 移动到正确位置
+                    move_bone_a_to_b(RIG.name, mmd_arm.name, "face", key)
 
-                # 调用函数
-                return_value = align_bones(value, RIG, key, mmd_arm)
-
-                if return_value:
-                    arm_number += 1
-
-            # 遍历字典的键值
             for key, value in config.items():
                 # 眼睛
                 if value == "eye.L" or value == "eye.R":
                     move_bone_a_to_b(RIG.name, mmd_arm.name, value, key)
 
-                if value == "spine.006":
-                    # 移动到正确位置
-                    move_bone_a_to_b(RIG.name, mmd_arm.name, "face", key)
+            rig_apply(RIG)
 
+            # 遍历字典的键值对并打印
+            for key, value in config.items():
+                print(f"键名: {key}, 值: {value}")
+                # 调用函数
+                return_value = align_bones(value, RIG, key, mmd_arm)
+                if return_value:
+                    arm_number += 1
                 # 手指
                 if check_keywords(value, ["thumb", "index", "middle", "ring", "pinky"]):
                     finger_bone.append(value)
 
             # 更新场景
             bpy.context.view_layer.update()
-            # 激活物体
-            bpy.context.view_layer.objects.active = RIG
-            # 选择物体
-            RIG.select_set(True)
-            bpy.ops.object.mode_set(mode='POSE')  # 切换到姿势模式
-            # 应用
-            bpy.ops.pose.armature_apply(selected=False)
+            rig_apply(RIG)
 
             # 对齐尾坐标
             calculate_tail_coordinates('spine.004', 'spine.003', RIG.name, scale=False)
@@ -774,7 +886,7 @@ class mmrrigOperator(bpy.types.Operator):
 
             bjiy_4 = {'foot.L': 'toe.L', 'foot.R': 'toe.R'}
 
-            bjiy_5 = ['shoulder.L', 'shoulder.R']
+            bjiy_5 = ['shoulder.L', 'shoulder.R', 'eye.L', 'eye.R']
 
             for bone in RIG.data.edit_bones:
                 bone.select = bone.name in bjiy_2
@@ -1149,7 +1261,7 @@ class mmrrigOperator(bpy.types.Operator):
 
                 if value1 in rigify.data.edit_bones:
                     # 父级
-                    bone.parent = rigify.data.edit_bones['DEF-' + value]
+                    bone.parent = rigify.data.edit_bones.get('DEF-' + value)
 
         eye_pt = ['eye.L', 'eye.R']
 
@@ -1166,15 +1278,16 @@ class mmrrigOperator(bpy.types.Operator):
                     edit_bones = rigify.data.edit_bones
                     mmd_edit_bones = mmd_arm.data.edit_bones
 
-                    m_bone = mmd_edit_bones[k]
+                    m_bone = mmd_edit_bones.get(k)
 
-                    # 复制骨骼（新建骨骼并复制属性）
-                    new_bone = edit_bones.new(name = n +'_parent')
-                    # 位置
-                    new_bone.head = m_bone.head
-                    new_bone.tail = m_bone.tail
-                    # 扭转
-                    new_bone.roll = m_bone.roll
+                    if m_bone:
+                        # 复制骨骼（新建骨骼并复制属性）
+                        new_bone = edit_bones.new(name = n +'_parent')
+                        # 位置
+                        new_bone.head = m_bone.head
+                        new_bone.tail = m_bone.tail
+                        # 扭转
+                        new_bone.roll = m_bone.roll
 
         bpy.context.view_layer.objects.active = rigify
         rigify.select_set(True)
@@ -1188,17 +1301,17 @@ class mmrrigOperator(bpy.types.Operator):
 
             edit_bones = rigify.data.edit_bones
 
-            s_bone = edit_bones['ORG-' + k + '_parent']
-            e_bone = edit_bones['ORG-' + k]
+            s_bone = edit_bones.get('ORG-' + k + '_parent')
+            e_bone = edit_bones.get('ORG-' + k)
+            if s_bone and e_bone:
+                # 父级
+                s_bone.parent = e_bone
 
-            # 父级
-            s_bone.parent = e_bone
-
-            bpy.ops.object.mode_set(mode='POSE')
-            # 加入集合
-            data_bones = rigify.data.bones
-            t_bone = data_bones.get('ORG-' + k + '_parent')
-            rigify.data.collections_all['ORG'].assign(t_bone)
+                bpy.ops.object.mode_set(mode='POSE')
+                # 加入集合
+                data_bones = rigify.data.bones
+                t_bone = data_bones.get('ORG-' + k + '_parent')
+                rigify.data.collections_all['ORG'].assign(t_bone)
 
         # 捩骨约束
         for key, value in Twist_bones[1].items():
@@ -1369,13 +1482,6 @@ class mmrrigOperator(bpy.types.Operator):
             rigify.pose.bones["torso"]["neck_follow"] = 1
             rigify.pose.bones["torso"]["head_follow"] = 1
 
-        is_gto = ['Face (Primary)', 'Face (Secondary)', 'Torso (Tweak)', 'Fingers (Detail)', 'Fingers (IK)', 'Arm.L (FK)', 'Arm.R (FK)',
-                  'Arm.L (Tweak)', 'Arm.R (Tweak)', 'Leg.L (FK)', 'Leg.R (FK)', 'Leg.L (Tweak)', 'Leg.R (Tweak)']
-
-        # 隐藏骨骼集合
-        for n in is_gto:
-            rigify.data.collections_all[n].is_visible = False
-
         not_bone = ['ear.L', 'ear.R', 'jaw_master', 'teeth.B', 'tongue_master', 'teeth.T', 'nose_master']
 
         blender_version = bpy.app.version_string
@@ -1402,6 +1508,60 @@ class mmrrigOperator(bpy.types.Operator):
             for i in ik_stretch:
                 bone = rigify.pose.bones.get(i)
                 bone["pole_vector"] = True
+
+        # 更新场景
+        bpy.context.view_layer.update()
+
+        arms = {}
+
+        bone_names = ['upper_arm_fk.L', 'forearm_fk.L', 'hand_fk.L', '>---<', 'upper_arm_fk.R', 'forearm_fk.R',
+                      'hand_fk.R','>---<','thigh_fk.L','shin_fk.L','foot_fk.L','>---<','thigh_fk.R','shin_fk.R','foot_fk.R']
+
+        print(f'自动IK骨骼链: {bone_names}')
+
+        for idx, bone_name in enumerate(bone_names):
+            if bone_name != '>---<':
+                if bone_name != bone_names[-1]:
+                    if bone_names[idx + 1] != '>---<':
+                        arms[bone_name] = bone_names[idx + 1]
+
+        connected_bones_name = []
+
+        bpy.context.view_layer.objects.active = rigify
+        bpy.ops.object.mode_set(mode='EDIT')
+
+        # 连接骨骼
+        for bone1_name, bone2_name in arms.items():
+
+            bone1 = rigify.data.edit_bones.get(bone1_name)
+            bone2 = rigify.data.edit_bones.get(bone2_name)
+
+            connected_bone_name = connect_bone(bone1, bone2)
+
+            # 过滤重复的骨骼名称
+            if connected_bone_name:
+                for bone_name in connected_bone_name:
+                    if bone_name not in connected_bones_name:
+                        connected_bones_name.append(bone_name)
+
+        bpy.ops.object.mode_set(mode='POSE')
+
+        for bone_name in connected_bones_name:
+            bone = rigify.pose.bones.get(bone_name)
+            if bone:
+                bone.lock_location = [False, False, False]
+
+        rigify.pose.use_auto_ik = True
+
+        bpy.ops.pose.select_all(action='DESELECT')
+
+        is_gto = ['Face (Primary)', 'Face (Secondary)', 'Torso (Tweak)', 'Fingers (Detail)', 'Fingers (IK)',
+                  'Arm.L (FK)', 'Arm.R (FK)',
+                  'Arm.L (Tweak)', 'Arm.R (Tweak)', 'Leg.L (FK)', 'Leg.R (FK)', 'Leg.L (Tweak)', 'Leg.R (Tweak)']
+
+        # 隐藏骨骼集合
+        for n in is_gto:
+            rigify.data.collections_all[n].is_visible = False
 
         if mmr.Use_ITASC_solver:
             rigify.pose.ik_solver = 'ITASC' # 设置IK解算器
@@ -2196,5 +2356,142 @@ class MMR_OT_Import_Default_Weight_Bone_Parent(bpy.types.Operator):
             item = items.add()
             item.key = k
             item.value = v
+
+        return {'FINISHED'}
+
+# 导入默认骨骼链
+class MMR_OT_Import_Default_Automatic_IK_Bone_Chain(bpy.types.Operator):
+    bl_idname = "mmr.import_default_automatic_ik_bone_chain"
+    bl_label = ""
+    bl_description = "导入默认自动IK骨骼链"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    obj_name: bpy.props.StringProperty(
+        name="Object Name",
+        description="目标对象名称",
+        default=""
+    )
+
+    def execute(self, context):
+
+        # 获取目标对象
+        if self.obj_name:
+            obj = bpy.data.objects[self.obj_name]
+        else:
+            obj = bpy.context.active_object
+
+        items = obj.mmr_automatic_ik_bone_chain
+
+        # 清空当前列表
+        items.clear()
+
+        # 导入默认项
+        arms = [
+            '腕.L', '腕捩.L','ひじ.L','手捩.L', '手首.L',
+            '>---<',
+            '腕.R', '腕捩.R','ひじ.R','手捩.R','手首.R']
+
+        for name in arms:
+            item = items.add()
+            item.name = name
+
+            if name == '>---<':
+                item.separator = True
+
+        return {'FINISHED'}
+
+# 添加自动IK骨骼链
+class MMR_OT_Add_Automatic_IK_Bone_Chain(bpy.types.Operator):
+    bl_idname = "mmr.add_automatic_ik_bone_chain"
+    bl_label = ""
+    bl_description = "添加自动IK骨骼链"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        items = obj.mmr_automatic_ik_bone_chain
+
+        # 添加默认项
+        items.add()
+
+        obj.mmr_automatic_ik_bone_chain_index = len(items) - 1 if len(items) > 0 else -1
+
+        return {'FINISHED'}
+
+# 删除自动IK骨骼链
+class MMR_OT_Remove_Automatic_IK_Bone_Chain(bpy.types.Operator):
+    bl_idname = "mmr.remove_automatic_ik_bone_chain"
+    bl_label = ""
+    bl_description = "删除自动IK骨骼链"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        items = obj.mmr_automatic_ik_bone_chain
+
+        # 删除当前项
+        items.remove(obj.mmr_automatic_ik_bone_chain_index)
+
+        # 更新索引
+        if obj.mmr_automatic_ik_bone_chain_index >= len(items):
+            obj.mmr_automatic_ik_bone_chain_index = len(items) - 1 if len(items) > 0 else -1
+
+        return {'FINISHED'}
+
+# 添加分割项
+class MMR_OT_Add_Automatic_IK_Bone_Chain_Separator(bpy.types.Operator):
+    bl_idname = "mmr.add_automatic_ik_bone_chain_separator"
+    bl_label = ""
+    bl_description = "添加自动IK骨骼链分割项"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        items = obj.mmr_automatic_ik_bone_chain
+
+        # 添加默认项
+        item = items.add()
+        item.separator = True
+        item.name = '>---<'
+
+        obj.mmr_automatic_ik_bone_chain_index = len(items) - 1 if len(items) > 0 else -1
+
+        return {'FINISHED'}
+
+# 指定骨骼
+class MMR_OT_Designated_Bone_Chain(bpy.types.Operator):
+    bl_idname = "mmr.designated_bone"
+    bl_label = ""
+    bl_description = "指定自动IK骨骼"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.view_layer.objects.active
+        if obj is not None:
+            if obj.type == 'ARMATURE':
+                return True
+        return False
+
+    def execute(self, context):
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        items = obj.mmr_automatic_ik_bone_chain
+        index = obj.mmr_automatic_ik_bone_chain_index
+
+        item = items[index]
+
+        selected_bone = bpy.context.active_bone
+
+        # 更新当前项
+        if not item.separator:
+            item.name = selected_bone.name
 
         return {'FINISHED'}

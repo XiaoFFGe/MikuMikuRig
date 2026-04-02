@@ -594,6 +594,15 @@ class mmrrigOperator(bpy.types.Operator):
                     return False
             return len(parts1) < len(parts2)
 
+        def rig_apply(obj):
+            # 激活物体
+            bpy.context.view_layer.objects.active = obj
+            # 选择物体
+            obj.select_set(True)
+            bpy.ops.object.mode_set(mode='POSE')  # 切换到姿势模式
+            # 应用
+            bpy.ops.pose.armature_apply(selected=False)
+
         finger_bone = []
 
         arm_number = 0
@@ -605,39 +614,32 @@ class mmrrigOperator(bpy.types.Operator):
             # 缩放
             Size_settings(RIG,mmd_arm)
 
-            # 遍历字典的键值对并打印
             for key, value in config.items():
-                print(f"键名: {key}, 值: {value}")
+                if value == "spine.006":
+                    # 移动到正确位置
+                    move_bone_a_to_b(RIG.name, mmd_arm.name, "face", key)
 
-                # 调用函数
-                return_value = align_bones(value, RIG, key, mmd_arm)
-
-                if return_value:
-                    arm_number += 1
-
-            # 遍历字典的键值
             for key, value in config.items():
                 # 眼睛
                 if value == "eye.L" or value == "eye.R":
                     move_bone_a_to_b(RIG.name, mmd_arm.name, value, key)
 
-                if value == "spine.006":
-                    # 移动到正确位置
-                    move_bone_a_to_b(RIG.name, mmd_arm.name, "face", key)
+            rig_apply(RIG)
 
+            # 遍历字典的键值对并打印
+            for key, value in config.items():
+                print(f"键名: {key}, 值: {value}")
+                # 调用函数
+                return_value = align_bones(value, RIG, key, mmd_arm)
+                if return_value:
+                    arm_number += 1
                 # 手指
                 if check_keywords(value, ["thumb", "index", "middle", "ring", "pinky"]):
                     finger_bone.append(value)
 
             # 更新场景
             bpy.context.view_layer.update()
-            # 激活物体
-            bpy.context.view_layer.objects.active = RIG
-            # 选择物体
-            RIG.select_set(True)
-            bpy.ops.object.mode_set(mode='POSE') # 切换到姿势模式
-            # 应用
-            bpy.ops.pose.armature_apply(selected=False)
+            rig_apply(RIG)
 
             # 对齐尾坐标
             calculate_tail_coordinates('spine.004', 'spine.003', RIG.name, scale=False)
@@ -739,7 +741,7 @@ class mmrrigOperator(bpy.types.Operator):
 
             bjiy_4 = {'foot.L': 'toe.L', 'foot.R': 'toe.R'}
 
-            bjiy_5 = ['shoulder.L', 'shoulder.R']
+            bjiy_5 = ['shoulder.L', 'shoulder.R', 'eye.L', 'eye.R']
 
             for bone in RIG.data.edit_bones:
                 bone.select = bone.name in bjiy_2
@@ -959,11 +961,10 @@ class mmrrigOperator(bpy.types.Operator):
 
         # 生成
         bpy.ops.pose.rigify_generate()
-
         rigify = bpy.context.active_object
         rigify.name = 'RIG-' + mmd_arm.name
 
-        rigify.matrix_world = RIG.matrix_world # 吸附位置
+        rigify.matrix_world = RIG.matrix_world  # 吸附位置
 
         # 设置父子级
         for key, value in config.items():
@@ -1030,10 +1031,13 @@ class mmrrigOperator(bpy.types.Operator):
                 print(f"骨骼 {key} 或 {value} 不存在于骨架中")
 
         # 设置捩骨
-        Wrist_twist = {'A':mmr.Left_lower_arm_twist, 'B':mmr.Right_lower_arm_twist, 'C':mmr.Left_upper_arm_twist, 'D':mmr.Right_upper_arm_twist}
+        Wrist_twist = {'A': mmr.Left_lower_arm_twist, 'B': mmr.Right_lower_arm_twist, 'C': mmr.Left_upper_arm_twist,
+                       'D': mmr.Right_upper_arm_twist}
 
-        Twist_bones = [{'forearm.L':Wrist_twist['A'], 'forearm.R':Wrist_twist['B'], 'upper_arm.L':Wrist_twist['C'], 'upper_arm.R':Wrist_twist['D']},
-                       {'DEF-forearm.L.001':Wrist_twist['A'], 'DEF-forearm.R.001':Wrist_twist['B'], 'DEF-upper_arm.L.001':Wrist_twist['C'], 'DEF-upper_arm.R.001':Wrist_twist['D']}]
+        Twist_bones = [{'forearm.L': Wrist_twist['A'], 'forearm.R': Wrist_twist['B'], 'upper_arm.L': Wrist_twist['C'],
+                        'upper_arm.R': Wrist_twist['D']},
+                       {'DEF-forearm.L.001': Wrist_twist['A'], 'DEF-forearm.R.001': Wrist_twist['B'],
+                        'DEF-upper_arm.L.001': Wrist_twist['C'], 'DEF-upper_arm.R.001': Wrist_twist['D']}]
 
         for key, value in Twist_bones[0].items():
 
@@ -1119,7 +1123,7 @@ class mmrrigOperator(bpy.types.Operator):
         eye_pt = ['eye.L', 'eye.R']
 
         for n in eye_pt:
-            for k , v in config.items():
+            for k, v in config.items():
                 if v == n:
                     n = 'ORG-' + v
                     # 进入编辑模式
@@ -1131,15 +1135,15 @@ class mmrrigOperator(bpy.types.Operator):
                     edit_bones = rigify.data.edit_bones
                     mmd_edit_bones = mmd_arm.data.edit_bones
 
-                    m_bone = mmd_edit_bones[k]
-
-                    # 复制骨骼（新建骨骼并复制属性）
-                    new_bone = edit_bones.new(name = n +'_parent')
-                    # 位置
-                    new_bone.head = m_bone.head
-                    new_bone.tail = m_bone.tail
-                    # 扭转
-                    new_bone.roll = m_bone.roll
+                    m_bone = mmd_edit_bones.get(k)
+                    if m_bone:
+                        # 复制骨骼（新建骨骼并复制属性）
+                        new_bone = edit_bones.new(name=n + '_parent')
+                        # 位置
+                        new_bone.head = m_bone.head
+                        new_bone.tail = m_bone.tail
+                        # 扭转
+                        new_bone.roll = m_bone.roll
 
         bpy.context.view_layer.objects.active = rigify
         rigify.select_set(True)
@@ -1153,18 +1157,20 @@ class mmrrigOperator(bpy.types.Operator):
 
             edit_bones = rigify.data.edit_bones
 
-            s_bone = edit_bones['ORG-' + k + '_parent']
-            e_bone = edit_bones['ORG-' + k]
+            s_bone = edit_bones.get('ORG-' + k + '_parent')
+            e_bone = edit_bones.get('ORG-' + k)
 
-            # 父级
-            s_bone.parent = e_bone
+            if s_bone and e_bone:
 
-            bpy.ops.object.mode_set(mode='POSE')
+                # 父级
+                s_bone.parent = e_bone
 
-            # 隐藏骨骼
-            data_bones = rigify.data.bones
-            t_bone = data_bones.get('ORG-' + k + '_parent')
-            t_bone.hide = True
+                bpy.ops.object.mode_set(mode='POSE')
+
+                # 隐藏骨骼
+                data_bones = rigify.data.bones
+                t_bone = data_bones.get('ORG-' + k + '_parent')
+                t_bone.hide = True
 
         # 捩骨约束
         for key, value in Twist_bones[1].items():
@@ -1252,7 +1258,7 @@ class mmrrigOperator(bpy.types.Operator):
 
         subtarget = ['つま先ＩＫ.L', 'つま先ＩＫ.R', '足ＩＫ.R', '足ＩＫ.L']
 
-        mmd_arms = True # 是否是mmd的armature
+        mmd_arms = True  # 是否是mmd的armature
 
         # 遍历骨骼
         for bone in mmd_arm.pose.bones:
@@ -1314,14 +1320,14 @@ class mmrrigOperator(bpy.types.Operator):
         t_bone = data_bones.get('torso_root')
         for idx, group in enumerate(rigify.pose.bone_groups):
             if group.name == 'Special':
-                bpy.ops.pose.select_all(action='DESELECT') # 取消所有选择
+                bpy.ops.pose.select_all(action='DESELECT')  # 取消所有选择
                 rigify.data.bones.active = t_bone
                 t_bone.select = True
-                bpy.ops.pose.group_assign(type=idx+1)
-                bpy.ops.pose.select_all(action='DESELECT') # 取消所有选择
+                bpy.ops.pose.group_assign(type=idx + 1)
+                bpy.ops.pose.select_all(action='DESELECT')  # 取消所有选择
                 break
 
-        rigify.show_in_front = True # 在前面
+        rigify.show_in_front = True  # 在前面
 
         if mmr.Upper_body_linkage:
             rigify.pose.bones["torso"]["neck_follow"] = 0
@@ -1351,7 +1357,7 @@ class mmrrigOperator(bpy.types.Operator):
                 bone = rigify.pose.bones.get(n)
                 bone.hide = True
 
-        ik_stretch = ["upper_arm_parent.L", "upper_arm_parent.R", "thigh_parent.R","thigh_parent.L" ]
+        ik_stretch = ["upper_arm_parent.L", "upper_arm_parent.R", "thigh_parent.R", "thigh_parent.L"]
 
         # 关闭ik拉伸
         for i in ik_stretch:
@@ -1364,9 +1370,9 @@ class mmrrigOperator(bpy.types.Operator):
                 bone["pole_vector"] = True
 
         if mmr.Use_ITASC_solver:
-            rigify.pose.ik_solver = 'ITASC' # 设置IK解算器
+            rigify.pose.ik_solver = 'ITASC'  # 设置IK解算器
 
-        bpy.context.scene.tool_settings.transform_pivot_point = 'INDIVIDUAL_ORIGINS' # 各自的原点
+        bpy.context.scene.tool_settings.transform_pivot_point = 'INDIVIDUAL_ORIGINS'  # 各自的原点
 
         bpy.ops.object.mode_set(mode='OBJECT')
 
@@ -1381,13 +1387,13 @@ class mmrrigOperator(bpy.types.Operator):
             bpy.ops.object.delete(use_global=False)
 
         if not mmr.Hide_mmd_skeleton:
-            mmd_arm.hide_set(True) # 隐藏mmd骨架
+            mmd_arm.hide_set(True)  # 隐藏mmd骨架
         else:
-            mmd_arm.select_set(True) # 选中mmd骨架
+            mmd_arm.select_set(True)  # 选中mmd骨架
 
-        mmd_arm.matrix_world = mmd_arm_matrix # 还原位置
+        mmd_arm.matrix_world = mmd_arm_matrix  # 还原位置
 
-        rigify.matrix_world = mmd_arm_matrix # 吸附位置
+        rigify.matrix_world = mmd_arm_matrix  # 吸附位置
 
         # 激活并选择最终生成的Rigify骨架
         rigify.select_set(True)
