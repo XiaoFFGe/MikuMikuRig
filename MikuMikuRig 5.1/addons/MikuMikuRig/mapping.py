@@ -166,7 +166,7 @@ class MMR_BAC_OT_OpenPresetFolder(bpy.types.Operator):
     bl_label = '打开预设文件夹'
 
     def execute(self, context):
-        os.system('explorer ' + bpy.utils.resource_path('USER') + '\scripts\presets\mmr_kumopult_bac')
+        os.system('explorer ' + bpy.utils.resource_path('USER') + '/scripts/presets/mmr_kumopult_bac')
         return {'FINISHED'}
 
 

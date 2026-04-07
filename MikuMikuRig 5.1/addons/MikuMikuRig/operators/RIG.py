@@ -2110,8 +2110,8 @@ class MahyPdtOperator(bpy.types.Operator):
         bpy.ops.pose.select_all(action='DESELECT')
         # 选中并激活骨骼
         bpy.ops.pose.select_all(action='DESELECT')  # 取消所有骨骼选择
-        armature.data.bones.active = target_bone.bone  # 设置活动骨骼
-        target_bone.bone.select = True  # 选中骨骼
+        armature.data.bones.active = armature.data.bones.get(target_bone.name)  # 设置活动骨骼
+        target_bone.select = True  # 选中骨骼
         # 反向设置子级约束
         bpy.ops.constraint.childof_set_inverse(constraint="MMD_Emoji_Manager", owner='BONE')
         bpy.ops.constraint.childof_clear_inverse(constraint="MMD_Emoji_Manager", owner='BONE')

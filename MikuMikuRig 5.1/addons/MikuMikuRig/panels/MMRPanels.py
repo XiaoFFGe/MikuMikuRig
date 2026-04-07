@@ -583,22 +583,17 @@ class Physics_Panel(bpy.types.Panel):
         i = 50
 
         # 循环, 直到找到MMD根对象
-        while active_obj.mmd_type != 'ROOT':
-            # 循环次数减一
-            i -= 1
-            if i <= 0:
-                layout.label(text="未找到MMD根对象")
-
-            active_obj = active_obj.parent
+        while active_obj and active_obj.mmd_type != 'ROOT' and i > 0:
+            i -= 1 # 循环次数减一
+            active_obj = active_obj.parent # 上一级对象
 
         # 检查活动物体是否是MMD模型
-        if active_obj.mmd_type != 'ROOT':
-            layout.label(text="请选择MMD根对象")
+        if active_obj and (active_obj.mmd_type or active_obj.mmd_type == 'ROOT'):
 
-        if active_obj and not active_obj.mmd_root.is_built:
-            row.operator(MMD_RIG_PHYSICS_BUILD.bl_idname, text="Physics", icon="PHYSICS", depress=False)
-        else:
-            row.operator(MMD_RIG_PHYSICS_BUILD.bl_idname, text="Physics", icon="PHYSICS", depress=True)
+            if active_obj and not active_obj.mmd_root.is_built:
+                row.operator(MMD_RIG_PHYSICS_BUILD.bl_idname, text="Physics", icon="PHYSICS", depress=False)
+            else:
+                row.operator(MMD_RIG_PHYSICS_BUILD.bl_idname, text="Physics", icon="PHYSICS", depress=True)
 
         row.operator(Show_Rigidbody.bl_idname, text="Show Rigidbody", icon="RIGID_BODY")
         row.operator(Show_Joint.bl_idname, text="Show Joint", icon="RIGID_BODY_CONSTRAINT")
