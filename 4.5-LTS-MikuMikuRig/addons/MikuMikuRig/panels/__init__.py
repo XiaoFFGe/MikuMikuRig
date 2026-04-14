@@ -99,6 +99,13 @@ class MMR_property(bpy.types.PropertyGroup):
         description="选择骨骼重定向预设配置",
         items=make_presets_enum('.py'),
     )
+
+    # MMR rigid body是否已构建
+    mmr_root_is_built: BoolProperty(
+        name="MMR Root Is Built",
+        default=False,
+    )
+
     # 禁用手掌修正
     Disable_hand_fix: BoolProperty(
         name="Disable hand fix",
@@ -260,6 +267,7 @@ class MMR_property(bpy.types.PropertyGroup):
     Reference_bones: BoolProperty(
         default=False
     )
+    # 是否显示关节
     joint_show: BoolProperty(
         default=False,
     )
@@ -427,6 +435,10 @@ class MMR_property(bpy.types.PropertyGroup):
         default=False,
         description="mmd_tool额外选项"
     )
+    # 是否显示刚体
+    show_rigid_bodies: BoolProperty(
+        default=False,
+    )
 
 class MMR_Weight_bone_parent_fix(bpy.types.PropertyGroup):
     key: StringProperty(name="Key", default="")
@@ -504,6 +516,9 @@ class MMR_Physics_property(bpy.types.PropertyGroup):
 
 class MMR_Scene_Property(bpy.types.PropertyGroup):
     mmd_rigid_panel_bool: bpy.props.BoolProperty(
+        default=False,
+    )
+    mmr_rigid_panel_bool: bpy.props.BoolProperty(
         default=False,
     )
 

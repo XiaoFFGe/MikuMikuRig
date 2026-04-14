@@ -1350,7 +1350,6 @@ class Model:
             for original_obj in original_selected_objs:
                 original_obj.select_set(True)
 
-
         # 更新MMD根对象的状态
         mmd_root = self.rootObject().mmd_root
         if hasattr(mmd_root, "show_temporary_objects") and mmd_root.show_temporary_objects:
@@ -1454,6 +1453,29 @@ class MMD_RIG_PHYSICS_BUILD(bpy.types.Operator):
         Returns:
             操作结果状态（FINISHED或CANCELLED）
         """
+
+        active_obj = bpy.context.active_object
+
+        # 只能循环50次, 防止无限循环
+        i = 50
+
+        # 循环, 直到找到MMD根对象
+        while active_obj.mmd_type != 'ROOT':
+            # 循环次数减一
+            i -= 1
+            if i <= 0:
+                self.report({'ERROR'}, f"未找到MMD根对象")
+                return {'CANCELLED'}
+            active_obj = active_obj.parent
+
+        # 检查活动物体是否是MMD模型
+        if active_obj.mmd_type != 'ROOT':
+            self.report({'ERROR'}, "请选择MMD根对象")
+            return {'CANCELLED'}
+
+        active_obj.select_set(True)
+        bpy.context.view_layer.objects.active = active_obj
+
         # 确保刚体世界已启用
         if context.scene.rigidbody_world:
             context.scene.rigidbody_world.enabled = True
