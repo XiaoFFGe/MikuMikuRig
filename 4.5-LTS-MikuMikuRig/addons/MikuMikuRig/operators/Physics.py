@@ -236,7 +236,7 @@ class mmdrigidbody_to_mmrrigidbody(bpy.types.Operator):
 
     def execute(self, context):
 
-        global joints_collection, armature
+        global joints_collection, armature, collection
 
         active_obj = bpy.context.active_object
 
@@ -261,7 +261,93 @@ class mmdrigidbody_to_mmrrigidbody(bpy.types.Operator):
 
         root.mmr_bone.mmr_type = "ROOT"
 
-        collection = None
+        for child in root.children:
+            # 名称有"rigidbodies"
+            if "rigidbodies" in child.name:
+                collection = child
+            # 名称有"joints"
+            if "joints" in child.name:
+                joints_collection = child
+            # type是"armature"
+            if child.type == 'ARMATURE':
+                armature = child
+
+        # 获取物体"rigidbodies"的子物体
+        children_bones = collection.children
+        if collection:
+            # 遍历集合中的所有对象
+            for obj in children_bones:
+                if obj.type == 'MESH':  # 只处理网格对象
+                    if obj.rigid_body:
+                        obj.mmr_bone.collision_group_mask = obj.mmd_rigid.collision_group_mask
+                        obj.mmr_bone.collision_group_index = obj.mmd_rigid.collision_group_number
+                        obj.mmr_bone.bone = obj.mmd_rigid.bone
+                        # 面板布尔值
+                        obj.mmr_bone.panel_bool = True
+                        obj.mmr_bone.rigidbody_type = obj.mmd_rigid.type
+                        obj.mmr_bone.mmr_type = "RIGIDBODY"
+
+        # 获取物体"joints"的子物体
+        children_joints = joints_collection.children
+        if joints_collection:
+            # 遍历集合中的所有对象
+            for obj in children_joints:
+                if obj.type == 'EMPTY':
+                    obj.mmr_bone.mmr_type = "JOINT"
+
+        # 获取物体"armature"的子物体
+        children_armature = armature.children
+        armature.mmr_bone.mmr_type = "ARMATURE"
+        if armature:
+            # 遍历集合中的所有对象
+            for obj in children_armature:
+                if obj.type == 'MESH':  # 只处理网格对象
+                    if obj.rigid_body:
+                        obj.mmr_bone.collision_group_mask = obj.mmd_rigid.collision_group_mask
+                        obj.mmr_bone.collision_group_index = obj.mmd_rigid.collision_group_number
+                        obj.mmr_bone.bone = obj.mmd_rigid.bone
+                        # 面板布尔值
+                        obj.mmr_bone.panel_bool = True
+                        obj.mmr_bone.rigidbody_type = obj.mmd_rigid.type
+                        obj.mmr_bone.mmr_type = "RIGIDBODY"
+
+        context.scene.mmr.mmd_rigid_panel_bool = True
+
+        return {'FINISHED'}
+
+# MMR刚体转换MMD刚体
+class mmr_rigidbody_to_mmd_rigidbody(bpy.types.Operator):
+    '''mmrrigidbody_to_mmdrigidbody'''
+    bl_idname = "mmr.mmr_rigidbody_to_mmd_rigidbody"
+    bl_label = "MMR Rigidbody to MMD Rigidbody"
+    bl_options = {'REGISTER', 'UNDO'}  # 启用撤销功能
+
+    def execute(self, context):
+
+        global joints_collection, armature, collection
+
+        active_obj = bpy.context.active_object
+
+        # 只能循环50次, 防止无限循环
+        i = 50
+
+        # 循环, 直到找到MMD根对象
+        while active_obj.mmd_type != 'ROOT':
+            # 循环次数减一
+            i -= 1
+            if i <= 0:
+                self.report({'ERROR'}, f"未找到MMD根对象")
+                return {'CANCELLED'}
+            active_obj = active_obj.parent
+
+        # 检查活动物体是否是MMD模型
+        if active_obj.mmd_type != 'ROOT':
+            self.report({'ERROR'}, "请选择MMD根对象")
+            return {'CANCELLED'}
+
+        root = active_obj
+
+        root.mmr_bone.mmr_type = "ROOT"
 
         for child in root.children:
             # 名称有"rigidbodies"
@@ -280,34 +366,29 @@ class mmdrigidbody_to_mmrrigidbody(bpy.types.Operator):
             # 遍历集合中的所有对象
             for obj in children_bones:
                 if obj.type == 'MESH':  # 只处理网格对象
-                    obj.mmr_bone.collision_group_mask = obj.mmd_rigid.collision_group_mask
-                    obj.mmr_bone.collision_group_index = obj.mmd_rigid.collision_group_number
-                    obj.mmr_bone.bone = obj.mmd_rigid.bone
-                    # 面板布尔值
-                    obj.mmr_bone.panel_bool = True
-                    obj.mmr_bone.rigidbody_type = obj.mmd_rigid.type
-                    obj.mmr_bone.mmr_type = "RIGIDBODY"
-
-        # 获取物体"joints"的子物体
-        children_joints = joints_collection.children
-        if joints_collection:
-            # 遍历集合中的所有对象
-            for obj in children_joints:
-                if obj.type == 'EMPTY':
-                    obj.mmr_bone.mmr_type = "JOINT"
+                    if obj.rigid_body:
+                        obj.mmd_rigid.collision_group_mask = obj.mmr_bone.collision_group_mask
+                        obj.mmd_rigid.collision_group_number = obj.mmr_bone.collision_group_index
+                        obj.mmd_rigid.bone = obj.mmr_bone.bone
+                        obj.mmd_rigid.type = obj.mmr_bone.rigidbody_type
+                        # 面板布尔值
+                        obj.mmr_bone.panel_bool = False
 
         # 获取物体"armature"的子物体
         children_armature = armature.children
-        armature.mmr_bone.mmr_type = "ARMATURE"
         if armature:
             # 遍历集合中的所有对象
             for obj in children_armature:
                 if obj.type == 'MESH':  # 只处理网格对象
-                    obj.mmr_bone.bone = obj.mmd_rigid.bone
-                    if obj.mmr_bone.mmr_type != 'RIGIDBODY':
-                        obj.mmr_bone.mmr_type = "MESH"
+                    if obj.rigid_body:
+                        obj.mmd_rigid.collision_group_mask = obj.mmr_bone.collision_group_mask
+                        obj.mmd_rigid.collision_group_number = obj.mmr_bone.collision_group_index
+                        obj.mmd_rigid.bone = obj.mmr_bone.bone
+                        obj.mmd_rigid.type = obj.mmr_bone.rigidbody_type
+                        # 面板布尔值
+                        obj.mmr_bone.panel_bool = False
 
-        context.scene.mmr.mmd_rigid_panel_bool = True
+        context.scene.mmr.mmd_rigid_panel_bool = False
 
         return {'FINISHED'}
 
@@ -323,8 +404,8 @@ class Assign_Rigidbody(bpy.types.Operator):
         name="Non-Collision Distance Scale",  # 属性显示名称
         description="The distance scale for creating extra non-collision constraints while building physics",  # 属性描述
         min=0,  # 最小值
-        soft_max=10,  # 软最大值
-        default=1.5,  # 默认值
+        soft_max=50,  # 软最大值
+        default=1.4,  # 默认值
     )
 
     # 碰撞边距属性
@@ -719,6 +800,11 @@ class Assign_Rigidbody(bpy.types.Operator):
 
         bpy.context.scene.rigidbody_world.enabled = True  # 启用物理模拟
 
+        bpy.context.view_layer.objects.active = root  # 设置活动对象为根
+
+        # 标记已构建
+        root.mmr.mmr_root_is_built = True
+
         print('-' * 20)
         self.report({'INFO'}, f"共创建{idxs}个空物体刚体约束")
         return {'FINISHED'}
@@ -956,6 +1042,11 @@ class Remove_physics(bpy.types.Operator):
         # 恢复刚体世界的原始启用状态
         setRigidBodyWorldEnabled(rigidbody_world_enabled)
 
+        bpy.context.view_layer.objects.active = root  # 设置活动对象为根
+
+        # 标记未构建
+        root.mmr.mmr_root_is_built = False
+
         return {'FINISHED'}
 
 # 显示刚体
@@ -973,28 +1064,31 @@ class Show_Rigidbody(bpy.types.Operator):
 
         obj_parent = obj
 
-        if obj.mmd_root.show_rigid_bodies:
+        if obj.mmr.show_rigid_bodies:
             # 隐藏
             for child in obj_parent.children:
                 if "rigidbodies" in child.name:
                     for rigidbody in child.children:
                         rigidbody.hide_set(True)
-                if child.mmr_bone.mmr_type == 'ARMATURE':
+
+                if child.type == 'ARMATURE':
                     for rigidbody in child.children:
-                        if rigidbody.mmr_bone.mmr_type == 'RIGIDBODY':
+                        if rigidbody.rigid_body:
                             rigidbody.hide_set(True)
-            obj.mmd_root.show_rigid_bodies = False
+
+            obj.mmr.show_rigid_bodies = False
         else:
             # 显示
             for child in obj_parent.children:
                 if "rigidbodies" in child.name:
                     for rigidbody in child.children:
                         rigidbody.hide_set(False)
-                if child.mmr_bone.mmr_type == 'ARMATURE':
+
+                if child.type  == 'ARMATURE':
                     for rigidbody in child.children:
-                        if rigidbody.mmr_bone.mmr_type == 'RIGIDBODY':
+                        if rigidbody.rigid_body:
                             rigidbody.hide_set(False)
-            obj.mmd_root.show_rigid_bodies = True
+            obj.mmr.show_rigid_bodies = True
 
         return {'FINISHED'}
 
@@ -1019,15 +1113,16 @@ class Show_Joint(bpy.types.Operator):
             for child in obj_parent.children:
                 if "joints" in child.name:
                     for joint in child.children:
-                        joint.hide_set(True)
+                        if joint.rigid_body_constraint:
+                            joint.hide_set(True)
             obj.mmr.joint_show = False
         else:
             # 显示
             for child in obj_parent.children:
                 if "joints" in child.name:
                     for joint in child.children:
-                        print(joint.name)
-                        joint.hide_set(False)
+                        if joint.rigid_body_constraint:
+                            joint.hide_set(False)
             obj.mmr.joint_show = True
 
         return {'FINISHED'}
@@ -1065,8 +1160,8 @@ class Update_World(bpy.types.Operator):
 
         scene.rigidbody_world.time_scale = 0.75
 
-        scene.rigidbody_world.substeps_per_frame = 3
-        scene.rigidbody_world.solver_iterations = 8
+        scene.rigidbody_world.substeps_per_frame = 4
+        scene.rigidbody_world.solver_iterations = 6
 
         point_cache.frame_end = scene.frame_end
         return {'FINISHED'}
@@ -1102,11 +1197,11 @@ class Select_Collision_Group_For_Joint(bpy.types.Operator):
         constraint = obj.rigid_body_constraint
 
         object2 = constraint.object2
-        joint_index = object2.mmr_bone.collision_group_index
+        joint_index = object2.mmd_rigid.collision_group_number
 
         for child in obj_parent.children:
             child_constraint = child.rigid_body_constraint
-            if child_constraint.object2.mmr_bone.collision_group_index == joint_index:
+            if child_constraint.object2.mmd_rigid.collision_group_number == joint_index:
                 child.select_set(True)
 
         return {'FINISHED'}
@@ -1124,11 +1219,11 @@ class Select_By_Type_For_Joint(bpy.types.Operator):
         constraint = obj.rigid_body_constraint
 
         object2 = constraint.object2
-        joint_type = object2.mmr_bone.rigidbody_type
+        joint_type = object2.mmd_rigid.type
 
         for child in obj_parent.children:
             child_constraint = child.rigid_body_constraint
-            if child_constraint.object2.mmr_bone.rigidbody_type == joint_type:
+            if child_constraint.object2.mmd_rigid.type == joint_type:
                 child.select_set(True)
 
         return {'FINISHED'}
