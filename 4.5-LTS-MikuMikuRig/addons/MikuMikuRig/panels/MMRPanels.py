@@ -6,7 +6,7 @@ from addons.MikuMikuRig.operators.MMRpresets import mmrmakepresetsOperator, mmrd
 from addons.MikuMikuRig.operators.Physics import Add_Damping_Tracking, Remove_Damping_Tracking, Assign_Rigidbody, \
     Show_Rigidbody, Select_Collision_Group, Update_World, Select_By_Type, \
     mmdrigidbody_to_mmrrigidbody, Remove_physics, Show_Joint, Select_Collision_Group_For_Joint, \
-    Select_By_Type_For_Joint, mmr_rigidbody_to_mmd_rigidbody
+    Select_By_Type_For_Joint, mmr_rigidbody_to_mmd_rigidbody, Clear_Collision_Group_Mask, Bake_Physics_To_Bone
 from addons.MikuMikuRig.operators.RIG import mmrexportvmdactionsOperator, MahyPdtOperator, \
     MMR_OT_Batch_Adjust_Shape_Key, MMR_OT_Insert_Keyframe, MMR_OT_Unselect_All_Key, \
     MMR_OT_Select_All_Key, MMR_OT_Select_Keyframe_Key, MMR_OT_Weight_Bone_Parent_Add, MMR_OT_Weight_Bone_Parent_Del, \
@@ -560,16 +560,21 @@ class Physics_Panel(bpy.types.Panel):
             layout.use_property_split = False
 
             col = layout.column(align=True)
-            row = col.row(align=True)
+            row = col.row()
             row.enabled = not point_cache.is_baked
             row.prop(point_cache, "frame_start")
             row.prop(point_cache, "frame_end")
 
-            row = layout.row(align=True)
+            row = layout.row()
             if point_cache.is_baked is True:
                 row.operator("mmd_tools.ptcache_rigid_body_delete_bake", text="Delete Bake")
             else:
                 row.operator("mmd_tools.ptcache_rigid_body_bake", text="Bake")
+
+            row = layout.row()
+            row.prop(mmr, "Physics_frame_step", text=i18n("Frame Step"))
+            # 烘焙物理到骨骼
+            row.operator(Bake_Physics_To_Bone.bl_idname)
 
         layout.use_property_split = False
 
@@ -676,6 +681,11 @@ class Physics_Panel(bpy.types.Panel):
                 row.operator(mmdrigidbody_to_mmrrigidbody.bl_idname)
                 # MMR刚体转换MMD刚体
                 row.operator(mmr_rigidbody_to_mmd_rigidbody.bl_idname)
+
+                row = layout.row()
+
+                # 清除碰撞组遮罩
+                row.operator(Clear_Collision_Group_Mask.bl_idname)
 
             mmr_bone = context.active_object.mmr_bone
 

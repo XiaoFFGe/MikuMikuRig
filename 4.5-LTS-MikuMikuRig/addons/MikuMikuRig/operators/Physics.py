@@ -232,6 +232,7 @@ class mmdrigidbody_to_mmrrigidbody(bpy.types.Operator):
     '''mmdrigidbody_to_mmrrigidbody'''
     bl_idname = "mmr.mmd_rigidbody_to_mmr_rigidbody"
     bl_label = "MMD Rigidbody to MMR Rigidbody"
+    bl_description = "MMD刚体转MMR刚体"
     bl_options = {'REGISTER', 'UNDO'}  # 启用撤销功能
 
     def execute(self, context):
@@ -320,6 +321,7 @@ class mmr_rigidbody_to_mmd_rigidbody(bpy.types.Operator):
     '''mmrrigidbody_to_mmdrigidbody'''
     bl_idname = "mmr.mmr_rigidbody_to_mmd_rigidbody"
     bl_label = "MMR Rigidbody to MMD Rigidbody"
+    bl_description = "MMR刚体转MMD刚体"
     bl_options = {'REGISTER', 'UNDO'}  # 启用撤销功能
 
     def execute(self, context):
@@ -482,7 +484,7 @@ class Assign_Rigidbody(bpy.types.Operator):
         armature = None
 
         # 处理过的刚体对
-        Processed_Rigidbody = []
+        Processed_Rigidbody = set()
 
         rigidbody_bone_names = []
 
@@ -525,7 +527,8 @@ class Assign_Rigidbody(bpy.types.Operator):
                     constraint.disable_collisions = True
                     obj1 = constraint.object1
                     obj2 = constraint.object2
-                    Processed_Rigidbody.append([obj1,obj2])
+                    pair = frozenset([obj1,obj2]) # 有序对
+                    Processed_Rigidbody.add(pair) # 添加到处理过的刚体对中
                     joints_objects.append(joint)
 
         # 预处理"rigidbodies"
@@ -557,38 +560,8 @@ class Assign_Rigidbody(bpy.types.Operator):
 
         idxs = 0
 
-        # 按骨骼层级关系排序
-        def sort_bone_chain_by_hierarchy(armature, bone_names):
-            bones = armature.data.bones
-
-            # 找到根骨骼（没有父骨骼或父骨骼不在列表中的）
-            root_bones = []
-            for bone_name in bone_names:
-                bone = bones.get(bone_name)
-                if bone and (not bone.parent or bone.parent.name not in bone_names):
-                    root_bones.append(bone_name)
-
-            # 从根骨骼开始递归收集子骨骼
-            sorted_bones = []
-
-            def collect_children(bone_name):
-                if bone_name in bone_names and bone_name not in sorted_bones:
-                    sorted_bones.append(bone_name)
-                    bone = bones[bone_name]
-                    for child in bone.children:
-                        if child.name in bone_names:
-                            collect_children(child.name)
-
-            for root in root_bones:
-                collect_children(root)
-
-            return sorted_bones
-
         def __getRigidRange(obj: bpy.types.Object) -> float:
-            """计算刚体对象的最大尺寸范围
-            Args:obj: 刚体对象
-            Returns:刚体在X、Y、Z三个轴向上的最大尺寸
-            """
+            """计算刚体对象的最大尺寸范围"""
             x0, y0, z0 = obj.bound_box[0]  # 获取边界框的最小点
             x1, y1, z1 = obj.bound_box[6]  # 获取边界框的最大点
             return max(x1 - x0, y1 - y0, z1 - z0)  # 返回三个轴向的最大尺寸
@@ -596,11 +569,8 @@ class Assign_Rigidbody(bpy.types.Operator):
         def add__rigidbody_constraint(rigidbody,other_rigidbody):
             # 复制空物体
             empty_copy = empty.copy()
-            empty_copy.name = f"empty_{rigidbody.name}_{other_rigidbody.name}"
             # 将复制的空物体链接到场景
             temp_object.objects.link(empty_copy)
-            # 空物体父物体设置为"temporary"
-            empty_copy.parent = temp_collection
             empty_copy.hide_set(True) # 隐藏空物体
             # 设置空物体的刚体约束
             constraint = empty_copy.rigid_body_constraint
@@ -611,7 +581,12 @@ class Assign_Rigidbody(bpy.types.Operator):
 
         def Assemble_skeletal_rigidbody(rigidbody):
 
-            print("刚体：",rigidbody.name)
+            i = 0
+            for idx, other_rigidbody in enumerate(rigidbody_objects):
+                if other_rigidbody.name == rigidbody.name:
+                    i = idx
+
+            print(f"刚体：{rigidbody.name}，{i}/{len(rigidbody_objects)}")
 
             # 获取骨骼
             bone = armature.data.bones.get(rigidbody.mmr_bone.bone)
@@ -724,40 +699,44 @@ class Assign_Rigidbody(bpy.types.Operator):
             # 应用相对变换到关节
             joint.matrix_world = pose_bone_global_matrix @ relative_transform
 
-        for rigidbody in rigidbody_objects:
+        for idx, rigidbody in enumerate(rigidbody_objects):
             if rigidbody.type == 'MESH': # 只处理网格对象
                 # 遍历其他刚体
                 for other_rigidbody in rigidbody_objects:
                     if other_rigidbody.type == 'MESH': # 只处理网格对象
                         if other_rigidbody != rigidbody: # 排除自身
+
                             # 存储碰撞组遮罩
                             u = []
                             for i, bit in enumerate(rigidbody.mmr_bone.collision_group_mask):
                                 if bit:
                                     u.append([i, bit])
+
                             for i in u:
                                 if i[0] == other_rigidbody.mmr_bone.collision_group_index:
 
+                                    pair = frozenset([rigidbody, other_rigidbody]) # 有序对
+
                                     # 检查是否已处理过
-                                    if [rigidbody, other_rigidbody] not in Processed_Rigidbody and [other_rigidbody, rigidbody] not in Processed_Rigidbody:
+                                    if pair not in Processed_Rigidbody:
                                         # 计算两个刚体之间的距离
                                         distance = (rigidbody.location - other_rigidbody.location).length
                                         # 如果距离小于阈值，创建非碰撞约束
-                                        if distance < self.non_collision_distance_scale * ((__getRigidRange(rigidbody) + __getRigidRange(other_rigidbody)) * 0.5):
-
-                                            print(rigidbody.name, "与", other_rigidbody.name, "禁用碰撞")
+                                        if distance < self.non_collision_distance_scale * ((__getRigidRange(rigidbody) + __getRigidRange(other_rigidbody)) * 0.45):
+                                            print(f'<{(idx/len(rigidbody_objects))*100:.2f}%> {idx}/{len(rigidbody_objects)}',
+                                                  rigidbody.name, "与", other_rigidbody.name, "禁用碰撞", f'距离：{distance:.2f}')
                                             # 添加刚体约束
                                             add__rigidbody_constraint(rigidbody,other_rigidbody)
                                             idxs += 1
                                             # 处理过的刚体添加到列表
-                                            Processed_Rigidbody.append([rigidbody, other_rigidbody])
+                                            Processed_Rigidbody.add(pair)
 
         for rigidbody in rigidbody_objects:
             if rigidbody.mmr_bone.rigidbody_type == '0':
                 # 装配骨骼刚体
                 Assemble_skeletal_rigidbody(rigidbody)
 
-        Processed_Rigidbody = [] # 已处理过的刚体列表
+        Processed_Rigidbody = set() # 已处理过的刚体列表
 
         for rigidbody in rigidbody_objects:
             if rigidbody.mmr_bone.rigidbody_type == '1':
@@ -768,7 +747,7 @@ class Assign_Rigidbody(bpy.types.Operator):
                         continue
                     Assemble_Physical_Rigidbody(bone, rigidbody, mode = '1')
                     # 处理过的刚体添加到列表
-                    Processed_Rigidbody.append(rigidbody)
+                    Processed_Rigidbody.add(rigidbody)
 
         for rigidbody in rigidbody_objects:
             if rigidbody.mmr_bone.rigidbody_type == '2':
@@ -779,9 +758,9 @@ class Assign_Rigidbody(bpy.types.Operator):
                         continue
                     Assemble_Physical_Rigidbody(bone, rigidbody, mode = '2')
                     # 处理过的刚体添加到列表
-                    Processed_Rigidbody.append(rigidbody)
+                    Processed_Rigidbody.add(rigidbody)
 
-        Processed_Joints = [] # 已处理过的关节列表
+        Processed_Joints = set() # 已处理过的关节列表
 
         for joint in joints_objects:
             # 检查是否已处理过
@@ -791,7 +770,7 @@ class Assign_Rigidbody(bpy.types.Operator):
                 # 装配物理关节
                 Assemble_Physical_Joint(joint, rigidbody)
                 # 处理过的关节添加到列表
-                Processed_Joints.append(joint)
+                Processed_Joints.add(joint)
 
         bpy.context.scene.frame_set(frame_start)  # 更新场景变化
         bpy.context.view_layer.update()  # 更新视图层
@@ -806,7 +785,7 @@ class Assign_Rigidbody(bpy.types.Operator):
         root.mmr.mmr_root_is_built = True
 
         print('-' * 20)
-        self.report({'INFO'}, f"共创建{idxs}个空物体刚体约束")
+        self.report({'INFO'}, f"共创建{idxs}个刚体约束")
         return {'FINISHED'}
 
 # 解除物理
@@ -825,7 +804,6 @@ class Remove_physics(bpy.types.Operator):
         if context.screen and context.screen.is_animation_playing:
             return False
         return True
-
 
     def execute(self, context):
 
@@ -993,7 +971,7 @@ class Remove_physics(bpy.types.Operator):
                 # 应用相对变换矩阵到关节
                 joint.matrix_world = data_bone_global_matrix @ relative_matrix
 
-        Processed_Rigidbody = [] # 已处理过的刚体列表
+        Processed_Rigidbody = set() # 已处理过的刚体列表
 
         for child in armature.children:
             if child.mmr_bone.mmr_type == 'RIGIDBODY':
@@ -1002,7 +980,7 @@ class Remove_physics(bpy.types.Operator):
                     # 恢复矩阵
                     Recovery_matrix(child)
                     # 处理过的刚体添加到列表
-                    Processed_Rigidbody.append(child)
+                    Processed_Rigidbody.add(child)
 
         for child in collection.children:
             if child.mmr_bone.mmr_type == 'RIGIDBODY':
@@ -1011,7 +989,7 @@ class Remove_physics(bpy.types.Operator):
                     # 恢复矩阵
                     Recovery_matrix(child)
                     # 处理过的刚体添加到列表
-                    Processed_Rigidbody.append(child)
+                    Processed_Rigidbody.add(child)
 
         for joint in joints_collection.children:
             if joint.mmr_bone.mmr_type == 'JOINT':
@@ -1025,7 +1003,7 @@ class Remove_physics(bpy.types.Operator):
                         # 恢复矩阵
                         Recovery_matrix(joint, bone_name=bone_name1)
                         # 处理过的刚体添加到列表
-                        Processed_Rigidbody.append(joint)
+                        Processed_Rigidbody.add(joint)
 
         # 名称包含'mmr_physics'的骨骼约束
         for bone in armature.pose.bones:
@@ -1160,7 +1138,7 @@ class Update_World(bpy.types.Operator):
 
         scene.rigidbody_world.time_scale = 0.75
 
-        scene.rigidbody_world.substeps_per_frame = 4
+        scene.rigidbody_world.substeps_per_frame = 3
         scene.rigidbody_world.solver_iterations = 6
 
         point_cache.frame_end = scene.frame_end
@@ -1225,5 +1203,60 @@ class Select_By_Type_For_Joint(bpy.types.Operator):
             child_constraint = child.rigid_body_constraint
             if child_constraint.object2.mmd_rigid.type == joint_type:
                 child.select_set(True)
+
+        return {'FINISHED'}
+
+# 清除碰撞组遮罩
+class Clear_Collision_Group_Mask(bpy.types.Operator):
+    bl_idname = "mmr.clear_collision_group_mask"
+    bl_label = "Clear Collision Group Mask"
+    bl_description = "清除碰撞组遮罩"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+
+        set_objects = [obj for obj in context.selected_objects]
+
+        for obj in set_objects:
+            if obj.rigid_body:
+                for index, group_mask in enumerate(obj.mmr_bone.collision_group_mask):
+                    if obj.mmr_bone.collision_group_index != index:
+                        obj.mmr_bone.collision_group_mask[index] = False
+
+        return {'FINISHED'}
+
+# 烘焙物理到骨骼
+class Bake_Physics_To_Bone(bpy.types.Operator):
+
+    bl_idname = "mmr.bake_physics_to_bone"
+    bl_label = "Bake Physics To Bone"
+    bl_description = "烘焙物理到骨骼"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object.type == 'ARMATURE'
+
+    def execute(self, context):
+
+        arm = context.active_object
+
+        bpy.ops.object.mode_set(mode='POSE')
+
+        bpy.ops.pose.select_all(action='DESELECT')
+
+        constraint_names = ['mmd_tools_rigid_track', 'mmr_physics']
+
+        for constraint_name in constraint_names:
+            for bone in arm.pose.bones:
+                for constraint in bone.constraints:
+                    if constraint.name == constraint_name:
+                        bone.select = True
+
+        start = bpy.context.scene.frame_start
+        end = bpy.context.scene.frame_end
+
+        bpy.ops.nla.bake(frame_start=start, frame_end=end, step=arm.mmr.Physics_frame_step, only_selected=True, visual_keying=True, clear_constraints=True,
+                         use_current_action=True, clean_curves=True, bake_types={'POSE'})
 
         return {'FINISHED'}
