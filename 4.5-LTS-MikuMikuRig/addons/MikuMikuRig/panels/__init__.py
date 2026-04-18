@@ -428,8 +428,14 @@ class MMR_property(bpy.types.PropertyGroup):
     )
     frame_step: IntProperty(
         default=2,
-        description="帧步长"
+        description="帧步长，值越高，烘培越快，精度越低"
     )
+
+    Physics_frame_step: IntProperty(
+        default=2,
+        description="帧步长，值越高，烘培越快，精度越低"
+    )
+
     # mmd_tool额外选项
     mmd_tool_extras: BoolProperty(
         default=False,

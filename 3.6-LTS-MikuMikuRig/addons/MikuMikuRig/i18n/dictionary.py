@@ -47,6 +47,8 @@ dictionary = {
         ("", "Damping Tracking"): "阻尼追踪",
         ("", "MMD Rigidbody"): "MMD刚体",
         ("", "Collision Group Mask:"): "碰撞组遮罩：",
+        ("Operator", "Clear Collision Group Mask"): "清除碰撞组遮罩",
+        ("Operator", "Bake Physics To Bone"): "烘焙物理到骨骼",
         ("", "Collision Group"): "碰撞组",
         ("", "Damping"): "阻尼",
         ("", "Please select a bone"): "请选择一个骨骼",
@@ -69,7 +71,8 @@ dictionary = {
         ("", "Customize the panel preset"): "自定义面板预设",
         ("", "Constraint Bone"): "约束骨骼",
         ("", "MMR Rigidbody"): "MMR刚体",
-        ("Operator", "MMD Rigidbody to MMR Rigidbody"): "MMD刚体转MMR刚体",
+        ("Operator", "MMD Rigidbody to MMR Rigidbody"): "MMD转MMR",
+        ("Operator", "MMR Rigidbody to MMD Rigidbody"): "MMR转MMD",
         ("Operator", "Remove physics"): "解除物理",
         ("", "Global Rigidbody physical"): "全局刚体物理",
         ("Operator", "Show Joint"): "显示关节",
@@ -81,7 +84,9 @@ dictionary = {
         ("", "Limit(Location)"): "限制(位置)",
         ("", "Limit(Angle)"): "限制(角度)",
         ("", "Select Model"): "选择模型",
+        ("", "Hide MMR Rigidbody"): "隐藏MMR刚体",
         ("", "Hide MMD Rigidbody"): "隐藏MMD刚体",
+        ("", "No MMD Rigidbody"): "不使用MMR刚体",
         ("Operator", "Import default presets"): "导入默认预设",
         ("*", "MMR Key Options"): "MMR 形态键",
         ("","Batch Adjustment"):"批量调整",
@@ -106,6 +111,7 @@ dictionary = {
         ("", "Enable Finger IK"): "启用手指IK",
         ("", "Enable VMD IK import（Mandatory）"): "VMD动作IK导入（强制）",
         ("", "Bake Frame Step"): "烘培帧步长",
+        ("", "Automatic IK bone chain:"): "自动IK骨骼链：",
 
     }
 }

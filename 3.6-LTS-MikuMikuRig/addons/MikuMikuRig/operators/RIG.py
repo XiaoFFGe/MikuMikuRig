@@ -2164,3 +2164,140 @@ class MMR_OT_Import_Default_Weight_Bone_Parent(bpy.types.Operator):
             item.value = v
 
         return {'FINISHED'}
+
+# 导入默认骨骼链
+class MMR_OT_Import_Default_Automatic_IK_Bone_Chain(bpy.types.Operator):
+    bl_idname = "mmr.import_default_automatic_ik_bone_chain"
+    bl_label = ""
+    bl_description = "导入默认自动IK骨骼链"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    obj_name: bpy.props.StringProperty(
+        name="Object Name",
+        description="目标对象名称",
+        default=""
+    )
+
+    def execute(self, context):
+
+        # 获取目标对象
+        if self.obj_name:
+            obj = bpy.data.objects[self.obj_name]
+        else:
+            obj = bpy.context.active_object
+
+        items = obj.mmr_automatic_ik_bone_chain
+
+        # 清空当前列表
+        items.clear()
+
+        # 导入默认项
+        arms = [
+            '腕.L', '腕捩.L','ひじ.L','手捩.L', '手首.L',
+            '>---<',
+            '腕.R', '腕捩.R','ひじ.R','手捩.R','手首.R']
+
+        for name in arms:
+            item = items.add()
+            item.name = name
+
+            if name == '>---<':
+                item.separator = True
+
+        return {'FINISHED'}
+
+# 添加自动IK骨骼链
+class MMR_OT_Add_Automatic_IK_Bone_Chain(bpy.types.Operator):
+    bl_idname = "mmr.add_automatic_ik_bone_chain"
+    bl_label = ""
+    bl_description = "添加自动IK骨骼链"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        items = obj.mmr_automatic_ik_bone_chain
+
+        # 添加默认项
+        items.add()
+
+        obj.mmr_automatic_ik_bone_chain_index = len(items) - 1 if len(items) > 0 else -1
+
+        return {'FINISHED'}
+
+# 删除自动IK骨骼链
+class MMR_OT_Remove_Automatic_IK_Bone_Chain(bpy.types.Operator):
+    bl_idname = "mmr.remove_automatic_ik_bone_chain"
+    bl_label = ""
+    bl_description = "删除自动IK骨骼链"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        items = obj.mmr_automatic_ik_bone_chain
+
+        # 删除当前项
+        items.remove(obj.mmr_automatic_ik_bone_chain_index)
+
+        # 更新索引
+        if obj.mmr_automatic_ik_bone_chain_index >= len(items):
+            obj.mmr_automatic_ik_bone_chain_index = len(items) - 1 if len(items) > 0 else -1
+
+        return {'FINISHED'}
+
+# 添加分割项
+class MMR_OT_Add_Automatic_IK_Bone_Chain_Separator(bpy.types.Operator):
+    bl_idname = "mmr.add_automatic_ik_bone_chain_separator"
+    bl_label = ""
+    bl_description = "添加自动IK骨骼链分割项"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        items = obj.mmr_automatic_ik_bone_chain
+
+        # 添加默认项
+        item = items.add()
+        item.separator = True
+        item.name = '>---<'
+
+        obj.mmr_automatic_ik_bone_chain_index = len(items) - 1 if len(items) > 0 else -1
+
+        return {'FINISHED'}
+
+# 指定骨骼
+class MMR_OT_Designated_Bone_Chain(bpy.types.Operator):
+    bl_idname = "mmr.designated_bone"
+    bl_label = ""
+    bl_description = "指定自动IK骨骼"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.view_layer.objects.active
+        if obj is not None:
+            if obj.type == 'ARMATURE':
+                return True
+        return False
+
+    def execute(self, context):
+        # 获取目标对象
+        obj = bpy.context.active_object
+
+        items = obj.mmr_automatic_ik_bone_chain
+        index = obj.mmr_automatic_ik_bone_chain_index
+
+        item = items[index]
+
+        selected_bone = bpy.context.active_bone
+
+        # 更新当前项
+        if not item.separator:
+            item.name = selected_bone.name
+
+        return {'FINISHED'}

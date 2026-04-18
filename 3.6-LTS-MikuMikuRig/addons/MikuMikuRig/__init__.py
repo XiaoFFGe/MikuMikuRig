@@ -5,7 +5,7 @@ from .config import __addon_name__
 from .i18n.dictionary import dictionary
 from .operators import has_keyframes_for_property
 from .panels import MMR_property, MMR_bone_property, MMR_Scene_Property, MMR_key_property, MMR_Physics_property, \
-    MMR_Weight_bone_parent_fix
+    MMR_Weight_bone_parent_fix, MMR_Automatic_IK_bone_chain
 from ...common.class_loader import auto_load
 from ...common.class_loader.auto_load import add_properties, remove_properties
 from ...common.i18n.dictionary import common_dictionary
@@ -16,7 +16,7 @@ bl_info = {
     "name": "MikuMikuRig",
     "author": "小峰峰哥l",
     "blender": (3, 6, 0),
-    "version": (2, 58),
+    "version": (2,75),
     "description": "MMD骨骼优化工具",
     "tracker_url": "https://space.bilibili.com/2109816568?spm_id_from=333.1007.0.0",
     "support": "COMMUNITY",
@@ -138,6 +138,10 @@ def register():
     bpy.types.Object.mmr_weight_bone_parent_fix = bpy.props.CollectionProperty(type=MMR_Weight_bone_parent_fix)
     bpy.types.Object.mmr_weight_bone_parent_fix_index = bpy.props.IntProperty(name="Index", default=0)
 
+    bpy.utils.register_class(MMR_Automatic_IK_bone_chain)
+    bpy.types.Object.mmr_automatic_ik_bone_chain = bpy.props.CollectionProperty(type=MMR_Automatic_IK_bone_chain)
+    bpy.types.Object.mmr_automatic_ik_bone_chain_index = bpy.props.IntProperty(name="Index", default=0)
+
     # 注册事件处理函数, 当场景的属性更新时调用 sync_mmr_key_values 函数
     bpy.app.handlers.depsgraph_update_pre.append(sync_mmr_key_values)
 
@@ -170,6 +174,10 @@ def unregister():
     bpy.utils.unregister_class(MMR_Weight_bone_parent_fix)
     del bpy.types.Object.mmr_weight_bone_parent_fix
     del bpy.types.Object.mmr_weight_bone_parent_fix_index
+
+    bpy.utils.unregister_class(MMR_Automatic_IK_bone_chain)
+    del bpy.types.Object.mmr_automatic_ik_bone_chain
+    del bpy.types.Object.mmr_automatic_ik_bone_chain_index
 
     # 注销事件处理函数
     bpy.app.handlers.depsgraph_update_pre.remove(sync_mmr_key_values)

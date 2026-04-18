@@ -15,10 +15,9 @@ def get_presets_directory():
     new_path = os.path.dirname(os.path.dirname(__file__))
     return os.path.join(new_path, 'operators', 'presets')
 
-
 TARGET_FOLDER = get_presets_directory()  # 预设目录
 
-
+# 获取预设文件列表
 def get_file_list(extension):
     global file_cache
 
@@ -56,6 +55,7 @@ def get_file_list(extension):
         print(f"预设加载错误: {str(e)}")
         return []
 
+
 def make_presets_enum(extension):
     def update_file_list(self, context):
         files = get_file_list(extension)  # 传入扩展名参数
@@ -85,7 +85,6 @@ def make_presets_enum(extension):
 
     return update_file_list
 
-
 class MMR_property(bpy.types.PropertyGroup):
     # 控制器预设（.json）
     presets: EnumProperty(
@@ -100,6 +99,13 @@ class MMR_property(bpy.types.PropertyGroup):
         description="选择骨骼重定向预设配置",
         items=make_presets_enum('.py'),
     )
+
+    # MMR rigid body是否已构建
+    mmr_root_is_built: BoolProperty(
+        name="MMR Root Is Built",
+        default=False,
+    )
+
     # 禁用手掌修正
     Disable_hand_fix: BoolProperty(
         name="Disable hand fix",
@@ -188,6 +194,7 @@ class MMR_property(bpy.types.PropertyGroup):
         default=False
     )
 
+    # 额外选项
     extras_enabled: BoolProperty(
         name="Extras Enabled",
         default=False
@@ -260,6 +267,7 @@ class MMR_property(bpy.types.PropertyGroup):
     Reference_bones: BoolProperty(
         default=False
     )
+    # 是否显示关节
     joint_show: BoolProperty(
         default=False,
     )
@@ -420,12 +428,39 @@ class MMR_property(bpy.types.PropertyGroup):
     )
     frame_step: IntProperty(
         default=2,
-        description="帧步长"
+        description="帧步长，值越高，烘培越快，精度越低"
+    )
+
+    Physics_frame_step: IntProperty(
+        default=2,
+        description="帧步长，值越高，烘培越快，精度越低"
+    )
+
+    # mmd_tool额外选项
+    mmd_tool_extras: BoolProperty(
+        default=False,
+        description="mmd_tool额外选项"
+    )
+    # 是否显示刚体
+    show_rigid_bodies: BoolProperty(
+        default=False,
     )
 
 class MMR_Weight_bone_parent_fix(bpy.types.PropertyGroup):
     key: StringProperty(name="Key", default="")
     value: StringProperty(name="Value", default="")
+
+class MMR_Automatic_IK_bone_chain(bpy.types.PropertyGroup):
+    name: bpy.props.StringProperty(
+        name="",
+        default="",
+        description="自动IK的骨骼"
+    )
+    # 分割线
+    separator: bpy.props.BoolProperty(
+        default=False,
+        description="分割线"
+    )
 
 class MMR_bone_property(bpy.types.PropertyGroup):
 
@@ -487,6 +522,9 @@ class MMR_Physics_property(bpy.types.PropertyGroup):
 
 class MMR_Scene_Property(bpy.types.PropertyGroup):
     mmd_rigid_panel_bool: bpy.props.BoolProperty(
+        default=False,
+    )
+    mmr_rigid_panel_bool: bpy.props.BoolProperty(
         default=False,
     )
 
