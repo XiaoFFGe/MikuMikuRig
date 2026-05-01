@@ -1434,8 +1434,6 @@ class mmrrigOperator(bpy.types.Operator):
         e_bone = edit_bones['thigh_ik.R']
         c_bone = edit_bones['torso']
         root_bone = edit_bones['root']
-        L_bone = edit_bones['hand_ik.L']
-        R_bone = edit_bones['hand_ik.R']
 
         # 复制骨骼（新建骨骼并复制属性）
         new_bone = edit_bones.new(name='torso_root')
@@ -1449,8 +1447,6 @@ class mmrrigOperator(bpy.types.Operator):
         # 父级
         new_bone.parent = root_bone
         c_bone.parent = new_bone
-        R_bone.parent = new_bone
-        L_bone.parent = new_bone
         # 形状
         bpy.ops.object.mode_set(mode='POSE')
         pose_bones = rigify.pose.bones
