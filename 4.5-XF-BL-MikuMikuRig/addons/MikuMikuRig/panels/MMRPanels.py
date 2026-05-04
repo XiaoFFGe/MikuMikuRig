@@ -5,7 +5,9 @@ from addons.MikuMikuRig.operators.MMRpresets import mmrmakepresetsOperator, mmrd
     MMR_OT_Designated
 from addons.MikuMikuRig.operators.Physics import Add_Damping_Tracking, Remove_Damping_Tracking, Assign_Rigidbody, \
     Show_Rigidbody, Select_Collision_Group, Update_World, Select_By_Type, \
-    mmdrigidbody_to_mmrrigidbody, Remove_physics, Show_Joint, Select_Collision_Group_For_Joint, Select_By_Type_For_Joint
+    mmdrigidbody_to_mmrrigidbody, Remove_physics, Show_Joint, Select_Collision_Group_For_Joint, \
+    Select_By_Type_For_Joint, mmr_rigidbody_to_mmd_rigidbody, Clear_Collision_Group_Mask, Bake_Physics_To_Bone, \
+    xf_rigidbody_to_mmrrigidbody
 from addons.MikuMikuRig.operators.RIG import mmrexportvmdactionsOperator, MahyPdtOperator, \
     MMR_OT_Batch_Adjust_Shape_Key, MMR_OT_Insert_Keyframe, MMR_OT_Unselect_All_Key, \
     MMR_OT_Select_All_Key, MMR_OT_Select_Keyframe_Key, MMR_OT_Weight_Bone_Parent_Add, MMR_OT_Weight_Bone_Parent_Del, \
@@ -102,9 +104,9 @@ class MMR_key_Options(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
-        return context.active_object is not None
+        return context.active_object and context.mode == 'POSE' or context.mode == 'OBJECT'
 
-# IK-FK
+## IK-FK
 class IK_FK_fxer(bpy.types.Panel):
     bl_label = "MMR IK-FK"
     bl_idname = "Q_PT_MMR_IK_FK_0"
@@ -522,10 +524,18 @@ class Physics_Panel(bpy.types.Panel):
 
         obj = context.active_object
 
-        layout.use_property_split = True
-
         scene = context.scene
         rbw = scene.rigidbody_world
+
+        layout.use_property_split = False
+
+        row = layout.row(align=True)
+        row.label(text="Rigid Body Physics:", icon="PHYSICS")
+        row.operator(Update_World.bl_idname, text="Update World", icon="FILE_REFRESH")
+
+        layout.use_property_split = True
+
+        layout.prop(rbw, "enabled", text=i18n('Global Rigidbody physical'))
 
         if rbw:
             flow = layout.grid_flow(row_major=True, columns=0, even_columns=True, even_rows=False, align=True)
@@ -548,25 +558,24 @@ class Physics_Panel(bpy.types.Panel):
 
             point_cache = rigidbody_world.point_cache
 
+            layout.use_property_split = False
+
             col = layout.column(align=True)
-            row = col.row(align=True)
+            row = col.row()
             row.enabled = not point_cache.is_baked
             row.prop(point_cache, "frame_start")
             row.prop(point_cache, "frame_end")
 
-            layout.use_property_split = False
-
-            layout.prop(rbw, "enabled", text=i18n('Global Rigidbody physical'))
-
-            row = layout.row(align=True)
-            row.label(text="Rigid Body Physics:", icon="PHYSICS")
-            row.operator(Update_World.bl_idname, text="Update World", icon="ERROR")
-
-            row = layout.row(align=True)
+            row = layout.row()
             if point_cache.is_baked is True:
                 row.operator("mmd_tools.ptcache_rigid_body_delete_bake", text="Delete Bake")
             else:
                 row.operator("mmd_tools.ptcache_rigid_body_bake", text="Bake")
+
+            row = layout.row()
+            row.prop(mmr, "Physics_frame_step", text=i18n("Frame Step"))
+            # 烘焙物理到骨骼
+            row.operator(Bake_Physics_To_Bone.bl_idname)
 
         layout.use_property_split = False
 
@@ -587,16 +596,16 @@ class Physics_Panel(bpy.types.Panel):
             i -= 1 # 循环次数减一
             active_obj = active_obj.parent # 上一级对象
 
+        mmd_root = active_obj
+
         # 检查活动物体是否是MMD模型
-        if active_obj and (active_obj.mmd_type or active_obj.mmd_type == 'ROOT'):
+        if mmd_root and (mmd_root.mmd_type or mmd_root.mmd_type == 'ROOT'):
 
-            if active_obj and not active_obj.mmd_root.is_built:
-                row.operator(MMD_RIG_PHYSICS_BUILD.bl_idname, text="Physics", icon="PHYSICS", depress=False)
-            else:
-                row.operator(MMD_RIG_PHYSICS_BUILD.bl_idname, text="Physics", icon="PHYSICS", depress=True)
+            if mmd_root:
+                row.operator(MMD_RIG_PHYSICS_BUILD.bl_idname, text="Physics", icon="PHYSICS", depress=mmd_root.mmd_root.is_built)
 
-        row.operator(Show_Rigidbody.bl_idname, text="Show Rigidbody", icon="RIGID_BODY")
-        row.operator(Show_Joint.bl_idname, text="Show Joint", icon="RIGID_BODY_CONSTRAINT")
+                row.operator(Show_Rigidbody.bl_idname, text="Show Rigidbody", icon="RIGID_BODY", depress=mmd_root.mmr.show_rigid_bodies)
+                row.operator(Show_Joint.bl_idname, text="Show Joint", icon="RIGID_BODY_CONSTRAINT", depress=mmd_root.mmr.joint_show)
 
         if not context.scene.mmr.mmd_rigid_panel_bool:
             if obj is not None and obj.mmd_type == "RIGID_BODY":
@@ -651,65 +660,86 @@ class Physics_Panel(bpy.types.Panel):
 
         if not prefs.no_mmr_rigidbody:
 
-            layout.label(text=i18n("MMR Rigidbody"))
+            # 检查活动物体是否是MMD模型
+            if mmd_root and (mmd_root.mmd_type or mmd_root.mmd_type == 'ROOT'):
 
-            row = layout.row()
-            # MMR刚体
-            row.operator(Assign_Rigidbody.bl_idname)
-            # 解除物理
-            row.operator(Remove_physics.bl_idname)
-            # MMD刚体转换MMR刚体
-            layout.operator(mmdrigidbody_to_mmrrigidbody.bl_idname)
+                row = layout.row(align=True)
+                row.label(text=i18n("MMR Rigidbody"))
+                row.prop(context.scene.mmr, "mmr_rigid_panel_bool", text=i18n("Hide MMR Rigidbody"))
+
+                row = layout.row()
+
+                if mmd_root and not mmd_root.mmr.mmr_root_is_built:
+                    # MMR刚体
+                    row.operator(Assign_Rigidbody.bl_idname, icon="PHYSICS", depress=False)
+                else:
+                    # 解除物理
+                    row.operator(Remove_physics.bl_idname, icon="PHYSICS", depress=True)
+
+                # XF刚体转换MMR刚体
+                layout.operator(xf_rigidbody_to_mmrrigidbody.bl_idname)
+                row = layout.row()
+                # MMD刚体转换MMR刚体
+                row.operator(mmdrigidbody_to_mmrrigidbody.bl_idname)
+                # MMR刚体转换MMD刚体
+                row.operator(mmr_rigidbody_to_mmd_rigidbody.bl_idname)
+
+                row = layout.row()
+
+                # 清除碰撞组遮罩
+                row.operator(Clear_Collision_Group_Mask.bl_idname)
 
             mmr_bone = context.active_object.mmr_bone
 
             if mmr_bone.panel_bool:
 
-                mmr_bone = context.active_object.mmr_bone
+                if not context.scene.mmr.mmr_rigid_panel_bool:
 
-                row = layout.row(align=True)
-                row.prop(obj.rigid_body, "mass")
-                row.prop(obj.rigid_body, "restitution")
+                    mmr_bone = context.active_object.mmr_bone
 
-                row = layout.row(align=True)
-                row.prop(mmr_bone, "collision_group_index", text="Collision Group")
-                row.prop(obj.rigid_body, "friction")
+                    row = layout.row(align=True)
+                    row.prop(obj.rigid_body, "mass")
+                    row.prop(obj.rigid_body, "restitution")
 
-                col = layout.column(align=True)
-                row = col.row(align=True)
-                row.prop(mmr_bone, "rigidbody_type", text="Rigidbody Type", expand = True)
-                row = col.row(align=True)
-                row.prop(mmr_bone, "bone", icon="BONE_DATA")
+                    row = layout.row(align=True)
+                    row.prop(mmr_bone, "collision_group_index", text="Collision Group")
+                    row.prop(obj.rigid_body, "friction")
+
+                    col = layout.column(align=True)
+                    row = col.row(align=True)
+                    row.prop(mmr_bone, "rigidbody_type", text="Rigidbody Type", expand = True)
+                    row = col.row(align=True)
+                    row.prop(mmr_bone, "bone", icon="BONE_DATA")
 
 
-                col = layout.column(align=True)
-                col.label(text=i18n("collision collections:"))
-                c = col.row(align=True)
-                for i in range(10):
-                    c.prop(obj.rigid_body, "collision_collections", index=i, text=str(i), toggle=True)
-                c = col.row(align=True)
-                for i in range(10, 20):
-                    c.prop(obj.rigid_body, "collision_collections", index=i, text=str(i), toggle=True)
+                    col = layout.column(align=True)
+                    col.label(text=i18n("collision collections:"))
+                    c = col.row(align=True)
+                    for i in range(10):
+                        c.prop(obj.rigid_body, "collision_collections", index=i, text=str(i), toggle=True)
+                    c = col.row(align=True)
+                    for i in range(10, 20):
+                        c.prop(obj.rigid_body, "collision_collections", index=i, text=str(i), toggle=True)
 
-                # 碰撞组掩码部分
-                col = layout.column(align=True)
-                col.label(text=i18n("Collision Group Mask:"))
+                    # 碰撞组掩码部分
+                    col = layout.column(align=True)
+                    col.label(text=i18n("Collision Group Mask:"))
 
-                # 第一行显示 0-7 组
-                row = col.row(align=True)
-                for i in range(0, 8):
-                    row.prop(mmr_bone, "collision_group_mask", index=i, text=str(i), toggle=True)
+                    # 第一行显示 0-7 组
+                    row = col.row(align=True)
+                    for i in range(0, 8):
+                        row.prop(mmr_bone, "collision_group_mask", index=i, text=str(i), toggle=True)
 
-                # 第二行显示 8-15 组
-                row = col.row(align=True)
-                for i in range(8, 16):
-                    row.prop(mmr_bone, "collision_group_mask", index=i, text=str(i), toggle=True)
+                    # 第二行显示 8-15 组
+                    row = col.row(align=True)
+                    for i in range(8, 16):
+                        row.prop(mmr_bone, "collision_group_mask", index=i, text=str(i), toggle=True)
 
-                c = layout.column()
-                c.label(text="Damping")
-                row = c.row()
-                row.prop(obj.rigid_body, "linear_damping")
-                row.prop(obj.rigid_body, "angular_damping")
+                    c = layout.column()
+                    c.label(text="Damping")
+                    row = c.row()
+                    row.prop(obj.rigid_body, "linear_damping")
+                    row.prop(obj.rigid_body, "angular_damping")
 
             obj = context.active_object
             rbc = obj.rigid_body_constraint

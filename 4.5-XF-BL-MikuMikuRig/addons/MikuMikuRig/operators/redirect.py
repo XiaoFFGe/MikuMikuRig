@@ -301,7 +301,7 @@ class MMR_redirect(bpy.types.Operator):
         for bone in armature.pose.bones:
             for constraint in bone.constraints:
                 if constraint.name == "BAC_ROT_COPY":
-                    bone.select = True
+                    bone.bone.select = True
                     break
 
         bpy.ops.nla.bake(frame_start=int(start_frame),
@@ -780,7 +780,7 @@ class MMR_Import_VMD(bpy.types.Operator):
         for bone in armature.pose.bones:
             for constraint in bone.constraints:
                 if constraint.name == "BAC_ROT_COPY":
-                    bone.select = True
+                    bone.bone.select = True
                     break
 
         bpy.ops.nla.bake(frame_start=int(start_frame),

@@ -12,7 +12,7 @@ ACTIVE_ADDON = "MikuMikuRig"
 
 # The path of the blender executable. Blender2.93 is the minimum version required
 # Blender可执行文件的路径，Blender2.93是所需的最低版本
-BLENDER_EXE_PATH = "F:/Blender 5.1/blender.exe"
+BLENDER_EXE_PATH = "F:/XF-BL-Git/build_windows_x64_vc17_Release/bin/Release/blender.exe"
 
 # Linux example Linux示例
 # BLENDER_EXE_PATH = "/usr/local/blender/blender-3.6.0-linux-x64/blender"
@@ -79,7 +79,8 @@ BLENDER_EXE_PATH = normalize_blender_path_by_system(BLENDER_EXE_PATH)
 
 # If you want to override theBLENDER_ADDON_PATH(the path to install addon during testing), uncomment the following line and set the path manually.
 # 如果要覆盖BLENDER_ADDON_PATH(测试插件安装路径)，请取消下一行的注释并手动设置路径
-# BLENDER_ADDON_PATH = ""
+#
+BLENDER_ADDON_PATH = "F:/XF-BL-Git/build_windows_x64_vc17_Release/bin/Release/4.5/scripts/addons_core"
 
 # Could not find the blender addon path, raise error. Please set BLENDER_ADDON_PATH manually.
 # 未找到Blender插件路径，引发错误 请手动设置BLENDER_ADDON_PATH
