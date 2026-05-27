@@ -595,10 +595,6 @@ class Assign_Rigidbody(bpy.types.Operator):
                 if joint.type == 'EMPTY': # 只处理空物体关节
                     constraint = joint.rigid_body_constraint
                     constraint.disable_collisions = True
-                    obj1 = constraint.object1
-                    obj2 = constraint.object2
-                    pair = frozenset([obj1,obj2]) # 有序对
-                    Processed_Rigidbody.add(pair) # 添加到处理过的刚体对中
                     joints_objects.append(joint)
 
         # 预处理"rigidbodies"
@@ -771,6 +767,12 @@ class Assign_Rigidbody(bpy.types.Operator):
                     if other_rigidbody.type == 'MESH': # 只处理网格对象
                         if other_rigidbody != rigidbody: # 排除自身
 
+                            pair = frozenset([rigidbody, other_rigidbody])
+
+                            # 检查是否已处理过
+                            if pair in Processed_Rigidbody:
+                                continue # 已处理过，跳过
+
                             # 存储碰撞组遮罩
                             u = []
                             for i, bit in enumerate(rigidbody.mmr_bone.collision_group_mask):
@@ -782,6 +784,7 @@ class Assign_Rigidbody(bpy.types.Operator):
 
                                     item = rigidbody.rigid_body.xf_no_collision_objects.add()
                                     item.rigid_body = other_rigidbody
+                                    Processed_Rigidbody.add(pair)
                                     idxs += 1
 
         for rigidbody in rigidbody_objects:
@@ -1188,8 +1191,6 @@ class Update_World(bpy.types.Operator):
         rigidbody_world = context.scene.rigidbody_world
 
         point_cache = rigidbody_world.point_cache
-
-        scene.rigidbody_world.time_scale = 0.75
 
         scene.rigidbody_world.substeps_per_frame = 3
         scene.rigidbody_world.solver_iterations = 6
