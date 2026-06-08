@@ -12,7 +12,7 @@ ACTIVE_ADDON = "MikuMikuRig"
 
 # The path of the blender executable. Blender2.93 is the minimum version required
 # Blender可执行文件的路径，Blender2.93是所需的最低版本
-BLENDER_EXE_PATH = "E:/Blender 4.5/blender.exe"
+BLENDER_EXE_PATH = "F:/Blender 4.5/blender.exe"
 
 # Linux example Linux示例
 # BLENDER_EXE_PATH = "/usr/local/blender/blender-3.6.0-linux-x64/blender"
