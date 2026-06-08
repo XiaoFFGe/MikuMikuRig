@@ -103,7 +103,7 @@ class MMR_key_Options(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
-        return context.active_object and context.mode == 'POSE' or context.mode == 'OBJECT'
+        return context.active_object and context.active_object.mode == 'POSE' or context.active_object.mode == 'OBJECT'
 
 ## IK-FK
 class IK_FK_fxer(bpy.types.Panel):
@@ -511,13 +511,6 @@ class Physics_Panel(bpy.types.Panel):
     def draw(self, context: bpy.types.Context):
         layout = self.layout
         mmr = context.object.mmr
-        prefs = context.preferences.addons[__addon_name__].preferences
-
-        layout.label(text=i18n("Damping Tracking"))
-        layout.prop(mmr, "Softness", text=i18n("Softness"))
-        row = layout.row(align=True)
-        row.operator(Add_Damping_Tracking.bl_idname, text="Add Damping Tracking")
-        row.operator(Remove_Damping_Tracking.bl_idname, text="", icon='TRASH')
 
         layout.separator()
 
@@ -576,7 +569,46 @@ class Physics_Panel(bpy.types.Panel):
             # 烘焙物理到骨骼
             row.operator(Bake_Physics_To_Bone.bl_idname)
 
-        layout.use_property_split = False
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        return context.active_object is not None
+
+@reg_order(0)
+class Damping_Tracking(bpy.types.Panel):
+    bl_idname = "MMR_PT_Damping_Tracking"
+    bl_label = "Damping Tracking"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    bl_category = "MMR"
+    bl_parent_id = "SCENE_PT_MMR_Rig_3"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        mmr = context.object.mmr
+        layout.prop(mmr, "Softness", text=i18n("Softness"))
+        row = layout.row(align=True)
+        row.operator(Add_Damping_Tracking.bl_idname, text="Add Damping Tracking")
+        row.operator(Remove_Damping_Tracking.bl_idname, text="", icon='TRASH')
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        return context.active_object is not None
+
+@reg_order(1)
+class MMR_Rigid_body_PT(bpy.types.Panel):
+    bl_idname = "MMR_PT_Rigid_body"
+    bl_label = "Rigid Body"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    bl_category = "MMR"
+    bl_parent_id = "SCENE_PT_MMR_Rig_3"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.active_object
+        prefs = context.preferences.addons[__addon_name__].preferences
 
         row = layout.row()
         row.label(text=i18n("MMD Rigidbody"))
@@ -676,7 +708,6 @@ class Physics_Panel(bpy.types.Panel):
                     row.operator(Remove_physics.bl_idname, icon="PHYSICS", depress=True)
 
                 row = layout.row()
-
                 # MMD刚体转换MMR刚体
                 row.operator(mmdrigidbody_to_mmrrigidbody.bl_idname)
                 # MMR刚体转换MMD刚体
@@ -739,69 +770,89 @@ class Physics_Panel(bpy.types.Panel):
                     row.prop(obj.rigid_body, "linear_damping")
                     row.prop(obj.rigid_body, "angular_damping")
 
-            obj = context.active_object
-            rbc = obj.rigid_body_constraint
-            constraint = obj.rigid_body_constraint
-
-            if constraint:
-                if constraint.type == "GENERIC_SPRING":
-                    layout.label(text=i18n("Rigidbody Constraint"))
-
-                    c = layout.column()
-                    c.prop(rbc, "object1")
-                    c.prop(rbc, "object2")
-
-                    layout.label(text=i18n("Limit(Location)"))
-                    row = layout.row(align=True)
-                    col = row.column(align=True)
-                    row = col.row(align=True)
-                    row.prop(rbc, "limit_lin_x_lower")
-                    row.prop(rbc, "limit_lin_x_upper")
-                    row = col.row(align=True)
-                    row.prop(rbc, "limit_lin_y_lower")
-                    row.prop(rbc, "limit_lin_y_upper")
-                    row = col.row(align=True)
-                    row.prop(rbc, "limit_lin_z_lower")
-                    row.prop(rbc, "limit_lin_z_upper")
-
-                    layout.label(text=i18n("Limit(Angle)"))
-                    row = layout.row(align=True)
-                    col = row.column(align=True)
-                    row = col.row(align=True)
-                    row.prop(rbc, "limit_ang_x_lower")
-                    row.prop(rbc, "limit_ang_x_upper")
-                    row = col.row(align=True)
-                    row.prop(rbc, "limit_ang_y_lower")
-                    row.prop(rbc, "limit_ang_y_upper")
-                    row = col.row(align=True)
-                    row.prop(rbc, "limit_ang_z_lower")
-                    row.prop(rbc, "limit_ang_z_upper")
-
-                    ob = context.object
-                    rbc = ob.rigid_body_constraint
-                    row = layout.row()
-
-                    col = row.column(align=True)
-                    col.label(text=i18n("Spring(Location)"))
-                    col.prop(rbc, "spring_stiffness_x", text="X Stiffness")
-                    col.prop(rbc, "spring_stiffness_y", text="Y Stiffness")
-                    col.prop(rbc, "spring_stiffness_z", text="Z Stiffness")
-
-                    col = row.column(align=True)
-                    col.label(text=i18n("Spring(Angle)"))
-                    col.prop(rbc, "spring_stiffness_ang_x", text="X Stiffness")
-                    col.prop(rbc, "spring_stiffness_ang_y", text="Y Stiffness")
-                    col.prop(rbc, "spring_stiffness_ang_z", text="Z Stiffness")
-
-                    row = layout.row()
-                    # 选择碰撞组
-                    row.operator(Select_Collision_Group_For_Joint.bl_idname)
-                    # 按类型选择
-                    row.operator(Select_By_Type_For_Joint.bl_idname)
-
     @classmethod
     def poll(cls, context: bpy.types.Context):
         return context.active_object is not None
+
+@reg_order(2)
+class MMR_Rigidbody_Constraint_PT(bpy.types.Panel):
+    bl_idname = "MMR_PT_Rigidbody_Constraint"
+    bl_label = "Rigidbody Constraint"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    bl_category = "MMR"
+    bl_parent_id = "SCENE_PT_MMR_Rig_3"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.active_object
+        rbc = obj.rigid_body_constraint
+        constraint = obj.rigid_body_constraint
+
+        if constraint:
+            if constraint.type == "GENERIC_SPRING":
+
+                c = layout.column()
+                c.prop(rbc, "object1")
+                c.prop(rbc, "object2")
+
+                c = layout.column()
+                c.prop(rbc, "use_override_solver_iterations", text="Override Iterations")
+                if rbc.use_override_solver_iterations:
+                    layout.prop(rbc, "solver_iterations", text="Iterations")
+
+                layout.label(text=i18n("Limit(Location)"))
+                row = layout.row(align=True)
+                col = row.column(align=True)
+                row = col.row(align=True)
+                row.prop(rbc, "limit_lin_x_lower")
+                row.prop(rbc, "limit_lin_x_upper")
+                row = col.row(align=True)
+                row.prop(rbc, "limit_lin_y_lower")
+                row.prop(rbc, "limit_lin_y_upper")
+                row = col.row(align=True)
+                row.prop(rbc, "limit_lin_z_lower")
+                row.prop(rbc, "limit_lin_z_upper")
+
+                layout.label(text=i18n("Limit(Angle)"))
+                row = layout.row(align=True)
+                col = row.column(align=True)
+                row = col.row(align=True)
+                row.prop(rbc, "limit_ang_x_lower")
+                row.prop(rbc, "limit_ang_x_upper")
+                row = col.row(align=True)
+                row.prop(rbc, "limit_ang_y_lower")
+                row.prop(rbc, "limit_ang_y_upper")
+                row = col.row(align=True)
+                row.prop(rbc, "limit_ang_z_lower")
+                row.prop(rbc, "limit_ang_z_upper")
+
+                ob = context.object
+                rbc = ob.rigid_body_constraint
+                row = layout.row()
+
+                col = row.column(align=True)
+                col.label(text=i18n("Spring(Location)"))
+                col.prop(rbc, "spring_stiffness_x", text="X Stiffness")
+                col.prop(rbc, "spring_stiffness_y", text="Y Stiffness")
+                col.prop(rbc, "spring_stiffness_z", text="Z Stiffness")
+
+                col = row.column(align=True)
+                col.label(text=i18n("Spring(Angle)"))
+                col.prop(rbc, "spring_stiffness_ang_x", text="X Stiffness")
+                col.prop(rbc, "spring_stiffness_ang_y", text="Y Stiffness")
+                col.prop(rbc, "spring_stiffness_ang_z", text="Z Stiffness")
+
+                row = layout.row()
+                # 选择碰撞组
+                row.operator(Select_Collision_Group_For_Joint.bl_idname)
+                # 按类型选择
+                row.operator(Select_By_Type_For_Joint.bl_idname)
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        return context.active_object.rigid_body_constraint is not None
 
 # 刚体选择
 class MMRSelect_PT_Rigidbody(bpy.types.Panel):
