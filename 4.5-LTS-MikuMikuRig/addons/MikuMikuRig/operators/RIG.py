@@ -1503,6 +1503,10 @@ class mmrrigOperator(bpy.types.Operator):
         for i in ik_stretch:
             rigify.pose.bones[i]["IK_Stretch"] = 0
 
+        # 打开fk跟随
+        for i in ik_stretch:
+            rigify.pose.bones[i]["FK_limb_follow"] = 1
+
         # 极向目标
         if mmr.Polar_target:
             for i in ik_stretch:
@@ -1555,7 +1559,7 @@ class mmrrigOperator(bpy.types.Operator):
 
         bpy.ops.pose.select_all(action='DESELECT')
 
-        is_gto = ['Face (Primary)', 'Face (Secondary)', 'Torso (Tweak)', 'Fingers (Detail)', 'Fingers (IK)',
+        is_gto = ['Face (Primary)', 'Face (Secondary)', 'Torso (Tweak)', 'Torso (Redirect)', 'Fingers (Detail)', 'Fingers (IK)',
                   'Arm.L (FK)', 'Arm.R (FK)',
                   'Arm.L (Tweak)', 'Arm.R (Tweak)', 'Leg.L (FK)', 'Leg.R (FK)', 'Leg.L (Tweak)', 'Leg.R (Tweak)']
 
@@ -2181,6 +2185,8 @@ class MMR_OT_Batch_Adjust_Shape_Key(bpy.types.Operator):
             self.report({'INFO'}, "批量调整已打开")
         else:
             obj.mmr.register_handler = True
+            obj.mmr.last_batch_adjust_value = 0
+            obj.mmr.Batch_adjust_shape_key = 0
             print("sync_mmr_key_values 已关闭")
             self.report({'INFO'}, "批量调整已关闭")
 

@@ -1,4 +1,7 @@
 import bpy
+import json
+import os
+
 from bpy.app.handlers import persistent
 
 from .config import __addon_name__
@@ -16,7 +19,7 @@ bl_info = {
     "name": "MikuMikuRig",
     "author": "小峰峰哥l",
     "blender": (3, 6, 0),
-    "version": (2,75),
+    "version": (3,10),
     "description": "MMD骨骼优化工具",
     "tracker_url": "https://space.bilibili.com/2109816568?spm_id_from=333.1007.0.0",
     "support": "COMMUNITY",
@@ -63,7 +66,17 @@ def sync_mmr_key_values(scene,depsgraph):
             if idx == 0:
                 item.bool_value = False
 
+            # 读取json文件
+            with open(os.path.join(os.path.dirname(__file__), "operators/mmrkey.json"), "r", encoding="utf-8") as f:
+                mmr_key_json = json.load(f)
+                key_name = mmr_key_json.get(key.name)
+
             item.name = key.name
+            if key_name:
+                item.zh_name = key_name
+            else:
+                item.zh_name = key.name
+
             item.value = key.value
             item.meshkey_index = idx
             item.meshkey = key_obj.data.shape_keys
@@ -71,9 +84,15 @@ def sync_mmr_key_values(scene,depsgraph):
     # 获取批量调整值
     current_value1 = obj.mmr.Batch_adjust_shape_key
 
+    # 获取上一次批量调整值
+    last_batch_adjust_value = obj.mmr.last_batch_adjust_value
+
     # 如果值没有改变, 则不进行处理
     if current_value1 == obj.mmr.last_batch_adjust_value:
         return
+
+    # 改变了多少
+    change_value = current_value1 - last_batch_adjust_value
 
     # 更新存储的值
     obj.mmr.last_batch_adjust_value = current_value1
@@ -86,10 +105,10 @@ def sync_mmr_key_values(scene,depsgraph):
             if not obj.mmr.register_handler:
                 if not obj.mmr.direct_operation_shape_key:
                     # 同步到值
-                    key.value = current_value1
+                    key.value = key.value + change_value
                 else:
                     if meshkey:
-                        meshkey.key_blocks[key.meshkey_index].value = current_value1
+                        meshkey.key_blocks[key.meshkey_index].value = meshkey.key_blocks[key.meshkey_index].value + change_value
 
                 # 是否插入关键帧
                 if bpy.context.scene.tool_settings.use_keyframe_insert_auto:

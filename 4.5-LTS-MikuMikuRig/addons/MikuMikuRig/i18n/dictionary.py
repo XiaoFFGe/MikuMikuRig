@@ -100,6 +100,8 @@ dictionary = {
         ("", "Arm.R"): "手臂.R",
         ("", "Leg.L"): "腿部.L",
         ("", "Leg.R"): "腿部.R",
+        ("", "Head"): "头部",
+        ("", "Neck"): "脖子",
         ("", "Disable hand fix"): "禁用手掌修正",
         ("", "Disable toe position constraint"): "禁用脚趾位置约束",
         ("", "Weight bone parent fix"): "权重骨骼父级修正",

@@ -1363,6 +1363,10 @@ class mmrrigOperator(bpy.types.Operator):
         for i in ik_stretch:
             rigify.pose.bones[i]["IK_Stretch"] = 0
 
+        # 打开fk跟随
+        for i in ik_stretch:
+            rigify.pose.bones[i]["FK_limb_follow"] = 1
+
         # 极向目标
         if mmr.Polar_target:
             for i in ik_stretch:

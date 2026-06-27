@@ -31,7 +31,12 @@ class MMR_UL_key(bpy.types.UIList):
 
         if item.bool_value:
             layout.prop(item, "select", text="")
-        layout.label(text=item.name)
+
+        if obj.mmr.show_original_key_name:
+            layout.label(text=item.name)
+        else:
+            layout.label(text=item.zh_name)
+
         if item.bool_value:
             if not obj.mmr.direct_operation_shape_key:
                 layout.prop(item, "value", text="")
@@ -69,6 +74,7 @@ class MMR_UL_automatic_ik_bone_chain(bpy.types.UIList):
             row.prop(item, "name", text="", emboss=True)
 
 
+@reg_order(1)
 class MMR_key_Options(bpy.types.Panel):
 
     bl_label = "MMR Key Options"
@@ -76,7 +82,7 @@ class MMR_key_Options(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = 'UI'
     # name of the side panel
-    bl_category = "Tool"
+    bl_category = "MMR"
 
     def draw(self, context: bpy.types.Context):
         layout = self.layout
@@ -95,6 +101,7 @@ class MMR_key_Options(bpy.types.Panel):
             row.operator(MMR_OT_Unselect_All_Key.bl_idname, icon="CANCEL", text="")
             row.operator(MMR_OT_Select_All_Key.bl_idname, icon="CHECKBOX_HLT", text="")
             row.operator(MMR_OT_Select_Keyframe_Key.bl_idname, icon="AUTOMERGE_ON", text="")
+            row.prop(obj.mmr, "show_original_key_name", icon='ASSET_MANAGER', text="")
 
             row = layout.row()
             row.prop(obj.mmr, "Batch_adjust_shape_key", text=i18n('Batch Adjustment'))
@@ -103,7 +110,7 @@ class MMR_key_Options(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
-        return context.active_object and context.active_object.mode == 'POSE' or context.active_object.mode == 'OBJECT'
+        return context.active_object
 
 ## IK-FK
 class IK_FK_fxer(bpy.types.Panel):
@@ -151,6 +158,60 @@ class IK_FK_fxer(bpy.types.Panel):
         for bone in cx_obj.pose.bones:
             if bone.name == "thigh_parent.R":
                 row.prop(bone, '["IK_FK"]', text=i18n('Leg.R'))
+
+# FK跟随
+class MMR_FK_limb_follow(bpy.types.Panel):
+    bl_label = "MMR Follow"
+    bl_idname = "Q_PT_MMR_FK_Limb_Follow_0"
+    bl_category = "Item"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        # 检查是否有活动对象
+        if context.active_object is not None:
+            # 检查type是否为ARMATURE
+            if context.active_object.type == 'ARMATURE':
+                # 检查名称是否以"RIG"开头
+                if context.active_object.name.startswith("RIG"):
+                    return True
+        return False
+
+    def draw(self, context: bpy.types.Context):
+        layout = self.layout
+
+        cx_obj = context.active_object
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "torso":
+                layout.prop(bone, '["head_follow"]', text=i18n('Head'))
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "torso":
+                layout.prop(bone, '["neck_follow"]', text=i18n('Neck'))
+
+        if cx_obj.pose.bones.get("upper_arm_parent.L") and cx_obj.pose.bones.get("upper_arm_parent.R"):
+            row = layout.row()
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "upper_arm_parent.L":
+                row.prop(bone, '["FK_limb_follow"]', text=i18n('Arm.L'))
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "upper_arm_parent.R":
+                row.prop(bone, '["FK_limb_follow"]', text=i18n('Arm.R'))
+
+        if cx_obj.pose.bones.get("thigh_parent.L") and cx_obj.pose.bones.get("thigh_parent.R"):
+            row = layout.row()
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "thigh_parent.L":
+                row.prop(bone, '["FK_limb_follow"]', text=i18n('Leg.L'))
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "thigh_parent.R":
+                row.prop(bone, '["FK_limb_follow"]', text=i18n('Leg.R'))
 
 # 手指 FK-IK
 class Finger_IK_FK_fxer(bpy.types.Panel):
@@ -235,8 +296,6 @@ class Finger_IK_FK_fxer(bpy.types.Panel):
         for bone in cx_obj.pose.bones:
             if bone.name == "f_pinky.01_ik.R":
                 row.prop(bone, '["FK_IK"]', text=i18n('pinky')+'.R')
-
-
 
 # 控制器选项面板
 @reg_order(0)
@@ -422,7 +481,7 @@ class Set_constraints(bpy.types.Panel):
             row.prop(mmr_bone, "Set_constraints", index=i, text=str(names[i]), toggle=True)
 
 # 骨骼重定向
-@reg_order(1)
+@reg_order(2)
 class MMD_Rig_Opt_Polar(bpy.types.Panel):
     bl_label = "Bone retargeting"
     bl_idname = "SCENE_PT_MMR_Rig_1"
@@ -450,7 +509,7 @@ class MMD_Rig_Opt_Polar(bpy.types.Panel):
     def poll(cls, context: bpy.types.Context):
         return context.active_object is not None
 
-@reg_order(2)
+@reg_order(3)
 class MMD_Arm_Opt(bpy.types.Panel):
     bl_label = "MMD tool"
     bl_idname = "SCENE_PT_MMR_Rig_2"
@@ -494,7 +553,7 @@ class MMD_Arm_Opt(bpy.types.Panel):
         return context.active_object is not None
 
 # 物理面板
-@reg_order(3)
+@reg_order(4)
 class Physics_Panel(bpy.types.Panel):
     bl_label = "Physics options"
     bl_idname = "SCENE_PT_MMR_Rig_3"

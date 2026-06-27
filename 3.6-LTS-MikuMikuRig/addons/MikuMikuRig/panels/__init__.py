@@ -390,8 +390,7 @@ class MMR_property(bpy.types.PropertyGroup):
     # 批量调整形态
     Batch_adjust_shape_key: FloatProperty(
         default=0.0,
-        min=0.0,
-        max=1.0,
+        step=0.1,
         description="批量调整形态"
     )
     # 是否注册处理器
@@ -444,6 +443,11 @@ class MMR_property(bpy.types.PropertyGroup):
     # 是否显示刚体
     show_rigid_bodies: BoolProperty(
         default=False,
+    )
+    # 是否显示原文键名
+    show_original_key_name: BoolProperty(
+        default=False,
+        description="是否显示原文键名"
     )
 
 class MMR_Weight_bone_parent_fix(bpy.types.PropertyGroup):
@@ -533,6 +537,12 @@ class MMR_key_property(bpy.types.PropertyGroup):
         name="",
         default="",
         description="键名"
+    )
+    # 原文键名
+    zh_name: bpy.props.StringProperty(
+        name="",
+        default="",
+        description="原文键名"
     )
     value: bpy.props.FloatProperty(
         name="",
