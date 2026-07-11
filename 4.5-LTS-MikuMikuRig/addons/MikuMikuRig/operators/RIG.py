@@ -8,6 +8,7 @@ import bpy
 import numpy as np
 
 from addons.MikuMikuRig import has_keyframes_for_property
+from addons.MikuMikuRig.config import __addon_name__
 
 
 class polartargetOperator(bpy.types.Operator):
@@ -204,6 +205,8 @@ class mmrrigOperator(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='OBJECT') # 切换到物体模式
 
         mmr = context.object.mmr
+
+        prefs = context.preferences.addons[__addon_name__].preferences
 
         # 获取当前运行的Py文件的路径
         current_file_path = __file__
@@ -1475,12 +1478,23 @@ class mmrrigOperator(bpy.types.Operator):
 
         rigify.show_in_front = True # 在前面
 
-        if mmr.Upper_body_linkage:
-            rigify.pose.bones["torso"]["neck_follow"] = 0
-            rigify.pose.bones["torso"]["head_follow"] = 0
-        else:
+        # 脖子跟随
+        if prefs.neck_follow:
             rigify.pose.bones["torso"]["neck_follow"] = 1
+        else:
+            rigify.pose.bones["torso"]["neck_follow"] = 0
+
+        # 头部跟随
+        if prefs.head_follow:
             rigify.pose.bones["torso"]["head_follow"] = 1
+        else:
+            rigify.pose.bones["torso"]["head_follow"] = 0
+
+        # 双眼跟随
+        if prefs.both_eye_follow:
+            rigify.pose.bones["eyes"]["eyes_follow"] = 1
+        else:
+            rigify.pose.bones["eyes"]["eyes_follow"] = 0
 
         not_bone = ['ear.L', 'ear.R', 'jaw_master', 'teeth.B', 'tongue_master', 'teeth.T', 'nose_master']
 
@@ -1505,7 +1519,36 @@ class mmrrigOperator(bpy.types.Operator):
 
         # 打开fk跟随
         for i in ik_stretch:
-            rigify.pose.bones[i]["FK_limb_follow"] = 1
+            if prefs.arm_to_leg_following:
+                rigify.pose.bones[i]["FK_limb_follow"] = 0
+            else:
+                rigify.pose.bones[i]["FK_limb_follow"] = 1
+
+        # ik-fk偏好设置
+        for i in ik_stretch:
+            if i == "upper_arm_parent.L":
+                if prefs.left_ik_fk_preference:
+                    rigify.pose.bones[i]["IK_FK"] = 0
+                else:
+                    rigify.pose.bones[i]["IK_FK"] = 1
+
+            elif i == "upper_arm_parent.R":
+                if prefs.right_ik_fk_preference:
+                    rigify.pose.bones[i]["IK_FK"] = 0
+                else:
+                    rigify.pose.bones[i]["IK_FK"] = 1
+
+            elif i == "thigh_parent.R":
+                if prefs.right_leg_ik_fk_preference:
+                    rigify.pose.bones[i]["IK_FK"] = 0
+                else:
+                    rigify.pose.bones[i]["IK_FK"] = 1
+
+            elif i == "thigh_parent.L":
+                if prefs.left_leg_ik_fk_preference:
+                    rigify.pose.bones[i]["IK_FK"] = 0
+                else:
+                    rigify.pose.bones[i]["IK_FK"] = 1
 
         # 极向目标
         if mmr.Polar_target:
@@ -1515,6 +1558,9 @@ class mmrrigOperator(bpy.types.Operator):
 
         # 更新场景
         bpy.context.view_layer.update()
+
+        # 控制器线条设置
+        bpy.ops.mmr.controller_wireframe_width()
 
         arms = {}
 
@@ -1566,6 +1612,38 @@ class mmrrigOperator(bpy.types.Operator):
         # 隐藏骨骼集合
         for n in is_gto:
             rigify.data.collections_all[n].is_visible = False
+
+        # 左臂ik-fk偏好
+        if prefs.left_ik_fk_preference:
+            rigify.data.collections_all['Arm.L (IK)'].is_visible = True
+            rigify.data.collections_all['Arm.L (FK)'].is_visible = False
+        else:
+            rigify.data.collections_all['Arm.L (IK)'].is_visible = False
+            rigify.data.collections_all['Arm.L (FK)'].is_visible = True
+
+        # 右臂ik-fk偏好
+        if prefs.right_ik_fk_preference:
+            rigify.data.collections_all['Arm.R (IK)'].is_visible = True
+            rigify.data.collections_all['Arm.R (FK)'].is_visible = False
+        else:
+            rigify.data.collections_all['Arm.R (IK)'].is_visible = False
+            rigify.data.collections_all['Arm.R (FK)'].is_visible = True
+
+        # 左腿ik-fk偏好
+        if prefs.left_leg_ik_fk_preference:
+            rigify.data.collections_all['Leg.L (IK)'].is_visible = True
+            rigify.data.collections_all['Leg.L (FK)'].is_visible = False
+        else:
+            rigify.data.collections_all['Leg.L (IK)'].is_visible = False
+            rigify.data.collections_all['Leg.L (FK)'].is_visible = True
+
+        # 右腿ik-fk偏好
+        if prefs.right_leg_ik_fk_preference:
+            rigify.data.collections_all['Leg.R (IK)'].is_visible = True
+            rigify.data.collections_all['Leg.R (FK)'].is_visible = False
+        else:
+            rigify.data.collections_all['Leg.R (IK)'].is_visible = False
+            rigify.data.collections_all['Leg.R (FK)'].is_visible = True
 
         if mmr.Use_ITASC_solver:
             rigify.pose.ik_solver = 'ITASC' # 设置IK解算器
@@ -2499,5 +2577,29 @@ class MMR_OT_Designated_Bone_Chain(bpy.types.Operator):
         # 更新当前项
         if not item.separator:
             item.name = selected_bone.name
+
+        return {'FINISHED'}
+
+# 控制器线条设置
+class MMR_OT_Controller_Wireframe_Width(bpy.types.Operator):
+    bl_idname = "mmr.controller_wireframe_width"
+    bl_label = ""
+    bl_description = "控制器线框宽度"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        rigify = context.view_layer.objects.active
+        prefs = context.preferences.addons[__addon_name__].preferences
+
+        if not rigify:
+            return {'CANCELLED'}
+
+        if rigify.type != 'ARMATURE':
+            return {'CANCELLED'}
+
+        # 控制器线条设置
+        for bone in rigify.pose.bones:
+            if bone.custom_shape is not None:
+                bone.custom_shape_wire_width = prefs.controller_wireframe_width
 
         return {'FINISHED'}

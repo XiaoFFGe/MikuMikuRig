@@ -277,9 +277,6 @@ class MMR_property(bpy.types.PropertyGroup):
     Finger_options: BoolProperty(
         default=False,
     )
-    Upper_body_linkage: BoolProperty(
-        default=False,
-    )
     Thumb_twist_aligns_with_the_world_Z_axis: BoolProperty(
         default=False,
     )
@@ -448,6 +445,11 @@ class MMR_property(bpy.types.PropertyGroup):
     show_original_key_name: BoolProperty(
         default=False,
         description="是否显示原文键名"
+    )
+    # 偏好设置
+    preference: BoolProperty(
+        default=False,
+        description="偏好设置"
     )
 
 class MMR_Weight_bone_parent_fix(bpy.types.PropertyGroup):

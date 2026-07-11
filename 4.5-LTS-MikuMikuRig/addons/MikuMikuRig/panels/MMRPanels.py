@@ -12,7 +12,7 @@ from addons.MikuMikuRig.operators.RIG import mmrexportvmdactionsOperator, MahyPd
     MMR_OT_Select_All_Key, MMR_OT_Select_Keyframe_Key, MMR_OT_Weight_Bone_Parent_Add, MMR_OT_Weight_Bone_Parent_Del, \
     MMR_OT_Import_Default_Weight_Bone_Parent, MMR_OT_Import_Default_Automatic_IK_Bone_Chain, \
     MMR_OT_Add_Automatic_IK_Bone_Chain, MMR_OT_Remove_Automatic_IK_Bone_Chain, \
-    MMR_OT_Add_Automatic_IK_Bone_Chain_Separator, MMR_OT_Designated_Bone_Chain
+    MMR_OT_Add_Automatic_IK_Bone_Chain_Separator, MMR_OT_Designated_Bone_Chain, MMR_OT_Controller_Wireframe_Width
 from addons.MikuMikuRig.operators.RIG import mmrrigOperator
 from addons.MikuMikuRig.operators.RIG import polartargetOperator
 from addons.MikuMikuRig.operators.mmd_rig_physics import MMD_RIG_PHYSICS_BUILD
@@ -112,6 +112,28 @@ class MMR_key_Options(bpy.types.Panel):
     def poll(cls, context: bpy.types.Context):
         return context.active_object
 
+# MMR 主item面板
+class MMR_item_panel(bpy.types.Panel):
+    bl_label = "MMR Rig Options"
+    bl_idname = "Q_PT_MMR_Item_0"
+    bl_category = "Item"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        # 检查是否有活动对象
+        if context.active_object is not None:
+            # 检查type是否为ARMATURE
+            if context.active_object.type == 'ARMATURE':
+                # 检查名称是否以"RIG"开头
+                if context.active_object.name.startswith("RIG"):
+                    return True
+        return False
+
+    def draw(self, context: bpy.types.Context):
+        layout = self.layout
+
 ## IK-FK
 class IK_FK_fxer(bpy.types.Panel):
     bl_label = "MMR IK-FK"
@@ -120,6 +142,7 @@ class IK_FK_fxer(bpy.types.Panel):
     bl_region_type = 'UI'
     # name of the side panel
     bl_category = "Item"
+    bl_parent_id = "Q_PT_MMR_Item_0"
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
@@ -166,6 +189,8 @@ class MMR_FK_limb_follow(bpy.types.Panel):
     bl_category = "Item"
     bl_space_type = "VIEW_3D"
     bl_region_type = 'UI'
+    bl_parent_id = "Q_PT_MMR_Item_0"
+
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
@@ -182,6 +207,10 @@ class MMR_FK_limb_follow(bpy.types.Panel):
         layout = self.layout
 
         cx_obj = context.active_object
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "eyes":
+                layout.prop(bone, '["eyes_follow"]', text=i18n('Eyes'))
 
         for bone in cx_obj.pose.bones:
             if bone.name == "torso":
@@ -221,6 +250,8 @@ class Finger_IK_FK_fxer(bpy.types.Panel):
     bl_region_type = 'UI'
     # name of the side panel
     bl_category = "Item"
+    bl_parent_id = "Q_PT_MMR_Item_0"
+
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
@@ -337,6 +368,42 @@ class MMD_Rig_Opt(bpy.types.Panel):
 
                 if mmr.extras_enabled:
 
+                    # 偏好设置
+                    layout.prop(mmr, "preference", text=i18n("Preference"), icon="GEOMETRY_NODES", toggle=True)
+
+                    if mmr.preference:
+
+                        box = layout.box()
+
+                        box.label(text=i18n("IK/FK Preference"), icon='CON_KINEMATIC')
+
+                        row = box.row()
+                        row.prop(prefs, "left_ik_fk_preference",
+                                 text=i18n("Left Arm IK" if prefs.left_ik_fk_preference else "Left Arm FK"), toggle=True)
+                        row.prop(prefs, "right_ik_fk_preference",
+                                 text=i18n("Right Arm IK" if prefs.right_ik_fk_preference else "Right Arm FK"), toggle=True)
+
+                        row = box.row()
+                        row.prop(prefs, "left_leg_ik_fk_preference",
+                                 text=i18n("Left Leg IK" if prefs.left_leg_ik_fk_preference else "Left Leg FK"), toggle=True)
+                        row.prop(prefs, "right_leg_ik_fk_preference",
+                                 text=i18n("Right Leg IK" if prefs.right_leg_ik_fk_preference else "Right Leg FK"), toggle=True)
+
+                        box.label(text=i18n("Follow Settings"), icon='CON_SPLINEIK')
+                        box.prop(prefs, "both_eye_follow", text=i18n("Eyes"), toggle=True)
+                        row = box.row()
+                        row.prop(prefs, "head_follow", text=i18n("Head"), toggle=True)
+                        row.prop(prefs, "neck_follow", text=i18n("Neck"), toggle=True)
+                        box.prop(prefs, "arm_to_leg_following", text=i18n("Arm to leg"), toggle=True)
+
+                        box.label(text=i18n("Other Settings"), icon='BRUSHES_ALL')
+                        # 不使用MMR刚体
+                        box.prop(prefs, "no_mmr_rigidbody", text=i18n("No MMR Rigidbody"))
+                        # 控制器线框宽度
+                        row = box.row()
+                        row.prop(prefs, "controller_wireframe_width", text=i18n("Controller Wireframe Width"))
+                        row.operator(MMR_OT_Controller_Wireframe_Width.bl_idname, text="", icon="SHADERFX")
+
                     row = layout.row()
                     row.prop(mmr, "Bend_the_bones", text=i18n("Bend the arm bones"))
                     row.prop(mmr, "Bend_angle_arm", text=i18n("Bend angle"))
@@ -391,8 +458,6 @@ class MMD_Rig_Opt(bpy.types.Panel):
                     if mmr.Shoulder_linkage:
                         layout.label(text=i18n("This option has a serious bug and should not be enabled"), icon='ERROR')
 
-                    layout.prop(mmr, "Upper_body_linkage", text=i18n("Upper body linkage"))
-
                     # 隐藏骨架
                     layout.prop(mmr, "Hide_mmd_skeleton", text=i18n("No Hide skeleton"))
 
@@ -420,8 +485,7 @@ class MMD_Rig_Opt(bpy.types.Panel):
                         box.prop(mmr, "panel_preset_E", text=i18n("E"))
                         box.prop(mmr, "panel_preset_O", text=i18n("O"))
                     layout.prop(mmr, "direct_operation_shape_key", text=i18n("Direct operation shape key"))
-                    # 不使用MMR刚体
-                    layout.prop(prefs, "no_mmr_rigidbody", text=i18n("No MMD Rigidbody"))
+
                     layout.prop(mmr, "Preset_editor", text=i18n("MMR Preset Editor"))
             else:
                 layout.scale_y = 1.2  # 这将使按钮的垂直尺寸加倍
