@@ -500,6 +500,15 @@ class Assign_Rigidbody(bpy.types.Operator):
 
     def execute(self, context):
 
+        context_frame = bpy.context.scene.frame_current  # 当前帧
+        frame_start = bpy.context.scene.rigidbody_world.point_cache.frame_start  # 缓存开始帧
+
+        if context_frame != frame_start:
+            bpy.context.scene.frame_current = frame_start  # 设置当前帧为缓存开始帧
+            self.report({'WARNING'},
+                        f"当前帧{context_frame}与缓存开始帧{frame_start}不一致, 已自动调整为缓存开始帧, 请重新执行")
+            return {'FINISHED'}
+
         # 获取当前活动对象
         active_obj = bpy.context.active_object
 
@@ -862,6 +871,15 @@ class Remove_physics(bpy.types.Operator):
         return True
 
     def execute(self, context):
+
+        context_frame = bpy.context.scene.frame_current  # 当前帧
+        frame_start = bpy.context.scene.rigidbody_world.point_cache.frame_start  # 缓存开始帧
+
+        if context_frame != frame_start:
+            bpy.context.scene.frame_current = frame_start  # 设置当前帧为缓存开始帧
+            self.report({'WARNING'},
+                        f"当前帧{context_frame}与缓存开始帧{frame_start}不一致, 已自动调整为缓存开始帧, 请重新执行")
+            return {'FINISHED'}
 
         # 获取当前活动对象
         global armature, collection, joints_collection
@@ -1312,5 +1330,158 @@ class Bake_Physics_To_Bone(bpy.types.Operator):
 
         bpy.ops.nla.bake(frame_start=start, frame_end=end, step=arm.mmr.Physics_frame_step, only_selected=True, visual_keying=True, clear_constraints=True,
                          use_current_action=True, clean_curves=True, bake_types={'POSE'})
+
+        return {'FINISHED'}
+
+
+# 修复从其他版本导入的刚体
+class Fix_Rigid_Bodies_Imported_From_Other_Versions(bpy.types.Operator):
+    bl_idname = "mmr.fix_rigid_bodies_imported_from_ther_versions"
+    bl_label = "Fix rigid bodies imported from other versions"
+    bl_options = {'REGISTER', 'UNDO'}
+    bl_description = "修复从其他版本导入的刚体"
+
+    def execute(self, context):
+
+        global joints_collection, armature, collection
+
+        active_obj = bpy.context.active_object
+
+        # 只能循环50次, 防止无限循环
+        i = 50
+
+        # 循环, 直到找到MMD根对象
+        while active_obj.mmd_type != 'ROOT':
+            # 循环次数减一
+            i -= 1
+            if i <= 0:
+                self.report({'ERROR'}, f"未找到MMD根对象")
+                return {'CANCELLED'}
+            active_obj = active_obj.parent
+
+        # 检查活动物体是否是MMD模型
+        if active_obj.mmd_type != 'ROOT':
+            self.report({'ERROR'}, "请选择MMD根对象")
+            return {'CANCELLED'}
+
+        root = active_obj
+
+        root.mmr_bone.mmr_type = "ROOT"
+
+        for child in root.children:
+            # 名称有"rigidbodies"
+            if "rigidbodies" in child.name:
+                collection = child
+            # 名称有"joints"
+            if "joints" in child.name:
+                joints_collection = child
+            # type是"armature"
+            if child.type == 'ARMATURE':
+                armature = child
+
+        # 获取物体"rigidbodies"的子物体
+        children_bones = collection.children
+        if children_bones:
+            # 遍历集合中的所有对象
+            for obj in children_bones:
+                if obj.type == 'MESH':  # 只处理网格对象
+                    if obj.rigid_body:
+
+                        obj.rigid_body.time_scale = 1.0
+                        obj.rigid_body.gravity = 1.0
+
+                        for idx, collection in enumerate(obj.rigid_body.collision_collections):
+                            if idx == 0:
+                                obj.rigid_body.collision_collections[idx]= True
+                            else:
+                                obj.rigid_body.collision_collections[idx]= False
+
+        # 获取物体"armature"的子物体
+        children_armature = armature.children
+        armature.mmr_bone.mmr_type = "ARMATURE"
+        if armature:
+            # 遍历集合中的所有对象
+            for obj in children_armature:
+                if obj.type == 'MESH':  # 只处理网格对象
+                    if obj.rigid_body:
+
+                        obj.rigid_body.time_scale = 1.0
+                        obj.rigid_body.gravity = 1.0
+
+                        for idx, collection in enumerate(obj.rigid_body.collision_collections):
+                            if idx == 0:
+                                obj.rigid_body.collision_collections[idx]= True
+                            else:
+                                obj.rigid_body.collision_collections[idx]= False
+
+        bpy.context.scene.rigidbody_world.xf_col_group_whitelist = True
+
+        return {'FINISHED'}
+
+# 选择所有刚体
+class Select_All_Rigid_Bodies(bpy.types.Operator):
+    bl_idname = "mmr.select_all_rigid_bodies"
+    bl_label = "Select All"
+    bl_options = {'REGISTER', 'UNDO'}
+    bl_description = "选择所有刚体"
+
+    def execute(self, context):
+
+        global joints_collection, armature, collection
+
+        active_obj = bpy.context.active_object
+
+        # 只能循环50次, 防止无限循环
+        i = 50
+
+        # 循环, 直到找到MMD根对象
+        while active_obj.mmd_type != 'ROOT':
+            # 循环次数减一
+            i -= 1
+            if i <= 0:
+                self.report({'ERROR'}, f"未找到MMD根对象")
+                return {'CANCELLED'}
+            active_obj = active_obj.parent
+
+        # 检查活动物体是否是MMD模型
+        if active_obj.mmd_type != 'ROOT':
+            self.report({'ERROR'}, "请选择MMD根对象")
+            return {'CANCELLED'}
+
+        root = active_obj
+
+        root.mmr_bone.mmr_type = "ROOT"
+
+        for child in root.children:
+            # 名称有"rigidbodies"
+            if "rigidbodies" in child.name:
+                collection = child
+            # 名称有"joints"
+            if "joints" in child.name:
+                joints_collection = child
+            # type是"armature"
+            if child.type == 'ARMATURE':
+                armature = child
+
+        # 获取物体"rigidbodies"的子物体
+        children_bones = collection.children
+        if children_bones:
+            # 遍历集合中的所有对象
+            for obj in children_bones:
+                if obj.type == 'MESH':  # 只处理网格对象
+                    if obj.rigid_body:
+
+                        obj.select_set(True)
+
+        # 获取物体"armature"的子物体
+        children_armature = armature.children
+        armature.mmr_bone.mmr_type = "ARMATURE"
+        if armature:
+            # 遍历集合中的所有对象
+            for obj in children_armature:
+                if obj.type == 'MESH':  # 只处理网格对象
+                    if obj.rigid_body:
+
+                        obj.select_set(True)
 
         return {'FINISHED'}

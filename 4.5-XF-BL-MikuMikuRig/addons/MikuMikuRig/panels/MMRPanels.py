@@ -7,7 +7,7 @@ from addons.MikuMikuRig.operators.Physics import Add_Damping_Tracking, Remove_Da
     Show_Rigidbody, Select_Collision_Group, Update_World, Select_By_Type, \
     mmdrigidbody_to_mmrrigidbody, Remove_physics, Show_Joint, Select_Collision_Group_For_Joint, \
     Select_By_Type_For_Joint, mmr_rigidbody_to_mmd_rigidbody, Clear_Collision_Group_Mask, Bake_Physics_To_Bone, \
-    xf_rigidbody_to_mmrrigidbody
+    xf_rigidbody_to_mmrrigidbody, Fix_Rigid_Bodies_Imported_From_Other_Versions, Select_All_Rigid_Bodies
 from addons.MikuMikuRig.operators.RIG import mmrexportvmdactionsOperator, MahyPdtOperator, \
     MMR_OT_Batch_Adjust_Shape_Key, MMR_OT_Insert_Keyframe, MMR_OT_Unselect_All_Key, \
     MMR_OT_Select_All_Key, MMR_OT_Select_Keyframe_Key, MMR_OT_Weight_Bone_Parent_Add, MMR_OT_Weight_Bone_Parent_Del, \
@@ -249,6 +249,9 @@ class MMD_Rig_Opt(bpy.types.Panel):
     # name of the side panel
     bl_category = "MMR"
 
+    # 折叠面板
+    bl_options = {'DEFAULT_CLOSED'}
+
     def draw(self, context: bpy.types.Context):
 
         prefs = context.preferences.addons[__addon_name__].preferences
@@ -432,6 +435,9 @@ class MMD_Rig_Opt_Polar(bpy.types.Panel):
     # name of the side panel
     bl_category = "MMR"
 
+    # 折叠面板
+    bl_options = {'DEFAULT_CLOSED'}
+
     def draw(self, context: bpy.types.Context):
         layout = self.layout
         mmr = context.object.mmr
@@ -459,6 +465,9 @@ class MMD_Arm_Opt(bpy.types.Panel):
     bl_region_type = 'UI'
     # name of the side panel
     bl_category = "MMR"
+
+    # 折叠面板
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context: bpy.types.Context):
 
@@ -689,6 +698,7 @@ class MMR_Rigid_body_PT(bpy.types.Panel):
         # 选择碰撞组
         row.operator(Select_Collision_Group.bl_idname)
         row.operator(Select_By_Type.bl_idname)
+        layout.operator(Select_All_Rigid_Bodies.bl_idname)
 
         if not prefs.no_mmr_rigidbody:
 
@@ -721,6 +731,9 @@ class MMR_Rigid_body_PT(bpy.types.Panel):
 
                 # 清除碰撞组遮罩
                 row.operator(Clear_Collision_Group_Mask.bl_idname)
+
+                # 修复从其他版本导入的刚体
+                row.operator(Fix_Rigid_Bodies_Imported_From_Other_Versions.bl_idname)
 
             mmr_bone = context.active_object.mmr_bone
 

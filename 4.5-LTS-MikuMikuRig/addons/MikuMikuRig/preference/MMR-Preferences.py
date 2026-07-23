@@ -59,7 +59,7 @@ class MikuMikuRigPreferences(bpy.types.AddonPreferences):
     )
     # 人物四肢跟随
     arm_to_leg_following: BoolProperty(
-        default=False,
+        default=True,
         description="人物四肢跟随"
     )
 

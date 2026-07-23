@@ -79,6 +79,7 @@ dictionary = {
         ("", "Global Rigidbody physical"): "全局刚体物理",
         ("Operator", "Show Joint"): "显示关节",
         ("*", "Rigidbody Select"): "刚体选择",
+        ("Operator", "Select All"): "选择全部",
         ("*", "Rigidbody Constraint Select"): "刚体约束选择",
         ("", "Rigidbody Constraint"): "刚体约束",
         ("", "Spring(Location)"): "弹簧(位置)",
@@ -128,6 +129,7 @@ dictionary = {
         ("", "Other Settings"): "其他设置",
         ("", "No MMR Rigidbody"): "不使用MMR刚体",
         ("", "Controller Wireframe Width"): "控制器线框宽度",
+
 
     }
 }

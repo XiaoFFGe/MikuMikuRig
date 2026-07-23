@@ -19,7 +19,7 @@ bl_info = {
     "name": "MikuMikuRig",
     "author": "小峰峰哥l",
     "blender": (4, 5, 0),
-    "version": (3,15),
+    "version": (3,16),
     "description": "MMD骨骼优化工具",
     "tracker_url": "https://space.bilibili.com/2109816568?spm_id_from=333.1007.0.0",
     "support": "COMMUNITY",
@@ -32,7 +32,7 @@ _addon_properties = {}
 def sync_mmr_key_values(scene,depsgraph):
 
     # 获取目标对象
-    obj = bpy.context.active_object
+    obj = getattr(bpy.context, 'active_object', None)
 
     if not obj:
         return

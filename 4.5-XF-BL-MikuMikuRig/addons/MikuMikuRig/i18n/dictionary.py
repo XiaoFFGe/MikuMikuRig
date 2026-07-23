@@ -72,6 +72,8 @@ dictionary = {
         ("", "Constraint Bone"): "约束骨骼",
         ("", "MMR Rigidbody"): "MMR刚体",
         ("Operator", "XF Rigidbody to MMR Rigidbody"): "XF转MMR",
+        ("Operator", "Fix rigid bodies imported from other versions"): "修复跨版本刚体",
+        ("Operator", "Select All"): "选择全部",
         ("Operator", "MMD Rigidbody to MMR Rigidbody"): "MMD转MMR",
         ("Operator", "MMR Rigidbody to MMD Rigidbody"): "MMR转MMD",
         ("Operator", "Remove physics"): "解除物理",
