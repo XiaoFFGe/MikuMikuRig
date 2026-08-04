@@ -451,6 +451,22 @@ class MMR_property(bpy.types.PropertyGroup):
         default=False,
         description="偏好设置"
     )
+    # 约束名称
+    constraintswitchtool_name_enum: EnumProperty(
+        name="Mode",
+        description="约束名称",
+        items={
+            ("0", "自定义约束名称", "自定义约束名称"),
+            ("1", "mmr_physics", "mmr_physics"),
+            ("2", "mmd_tools_rigid_track", "mmd_tools_rigid_track"),
+            ("3", "MMR-阻尼追踪", "MMR-阻尼追踪"),
+        },
+        default="0"
+    )
+    constraintswitchtool_name: StringProperty(
+        default="",
+        description="自定义约束名称"
+    )
 
 class MMR_Weight_bone_parent_fix(bpy.types.PropertyGroup):
     key: StringProperty(name="Key", default="")
@@ -476,6 +492,52 @@ class MMR_bone_property(bpy.types.PropertyGroup):
         default=(True,) * 3,
         description="Set bone constraints"
     )
+
+    # 阻尼跟踪开关
+    Damping_Tracking_bool: bpy.props.BoolProperty(
+        default=False,
+        description="阻尼跟踪开关"
+    )
+    # 存储阻尼跟踪影响
+    Damping_Tracking_influence: bpy.props.FloatProperty(
+        default=0.0,
+        min=0.0,
+        max=1.0,
+        description="阻尼跟踪影响"
+    )
+    # 是否插入阻尼跟踪影响帧
+    Insert_dt_keyframe: bpy.props.BoolProperty(
+        default=False,
+        description="是否插入阻尼跟踪影响帧"
+    )
+    # 约束开关
+    Constraint_bool: bpy.props.BoolProperty(
+        default=False,
+        description="约束开关"
+    )
+    # 存储约束影响
+    Constraint_influence: bpy.props.FloatProperty(
+        default=0.0,
+        min=0.0,
+        max=1.0,
+        description="约束影响"
+    )
+    # 是否插入约束影响帧
+    Insert_constraint_keyframe: bpy.props.BoolProperty(
+        default=False,
+        description="是否插入约束影响帧"
+    )
+    # 禁用约束时保持变换
+    Disable_keep_transform: bpy.props.BoolProperty(
+        default=False,
+        description="禁用约束时保持当前变换，将约束效果烘焙到骨骼姿态上"
+    )
+    # 手动设置影响值（覆盖每骨骼的存储值）
+    Use_manual_influence: bpy.props.BoolProperty(
+        default=False,
+        description="启用时使用手动设置的影响值，应用于所有选中骨骼"
+    )
+
 
 class MMR_Physics_property(bpy.types.PropertyGroup):
 

@@ -2,6 +2,7 @@ from math import radians
 
 import bpy
 
+# 添加阻尼跟踪
 class Add_Damping_Tracking(bpy.types.Operator):
     '''Add_Damping_Tracking'''
     bl_idname = "mmr.add_damping_tracking"
@@ -107,6 +108,7 @@ class Add_Damping_Tracking(bpy.types.Operator):
             list_len = len(bone_chain)
 
             # 打印骨骼名称和索引
+            added_count = 0  # 记录添加的约束数量
             for index, bone_name in enumerate(bone_chain):
                 print(f"骨骼名称: {bone_name}, 索引: {index}")
 
@@ -118,24 +120,109 @@ class Add_Damping_Tracking(bpy.types.Operator):
                 # 获取子骨骼
                 children_bones = obj.pose.bones.get(bone_chain[index + 1])
 
-                # 先删除旧的约束
-                if current_bone:
-                    for constraint in current_bone.constraints:
-                        if constraint.name == "MMR-阻尼追踪":
-                            current_bone.constraints.remove(constraint)
-                            break
-                        # 没有找到旧的约束，删除阻尼追踪类型的约束
-                        if constraint.type == 'DAMPED_TRACK':
-                            current_bone.constraints.remove(constraint)
-                            break
+                # 检查骨骼是否存在
+                if not current_bone:
+                    print(f"警告: 未找到骨骼 '{bone_name}'，跳过")
+                    continue
 
-                if current_bone:
-                    # 加阻尼追踪约束
-                    constraint = current_bone.constraints.new(type='DAMPED_TRACK')
-                    constraint.name = "MMR-阻尼追踪"
-                    constraint.target = obj
-                    constraint.subtarget = children_bones.name  # 子骨骼
-                    constraint.influence = mmr.Softness
+                if not children_bones:
+                    print(f"警告: 未找到子骨骼 '{bone_chain[index + 1]}'，跳过")
+                    continue
+
+                # 先删除旧的约束(只删除名为"MMR-阻尼追踪"的约束)
+                constraint_to_remove = None
+                for constraint in current_bone.constraints:
+                    if constraint.name == "MMR-阻尼追踪":
+                        constraint_to_remove = constraint
+                        break
+
+                if constraint_to_remove:
+                    current_bone.constraints.remove(constraint_to_remove)
+
+                # 添加阻尼追踪约束
+                constraint = current_bone.constraints.new(type='DAMPED_TRACK')
+                constraint.name = "MMR-阻尼追踪"
+                constraint.target = obj
+                constraint.subtarget = children_bones.name  # 子骨骼
+                constraint.influence = mmr.Softness
+                added_count += 1
+
+            # 操作完成后给出提示
+            if added_count > 0:
+                print(f"成功添加 {added_count} 个阻尼追踪约束")
+
+        return {'FINISHED'}
+
+# 设置选择骨骼的阻尼追踪影响
+class Set_Damping_Tracking_Influence(bpy.types.Operator):
+    '''Set_Damping_Tracking_Influence'''
+    bl_idname = "mmr.set_damping_tracking_influence"
+    bl_label = "Set Damping Tracking Influence"
+    bl_options = {'REGISTER', 'UNDO'}  # 启用撤销功能
+
+    @classmethod
+    def poll(cls, context):
+        """验证是否可以执行操作"""
+        obj = context.active_object
+        return obj is not None and obj.type == 'ARMATURE'
+
+    def execute(self, context):
+        # 获取当前活动对象和骨骼
+        obj = bpy.context.active_object
+
+        # 获取选中骨骼列表
+        selected_bones = [bone for bone in obj.pose.bones if bone.select]
+
+        # 检查是否有选中的骨骼
+        if not selected_bones:
+            self.report({'WARNING'}, "请选择骨骼")
+            return {'CANCELLED'}
+
+        modified_count = 0  # 记录修改的约束数量
+
+        for bone in selected_bones:
+            # 检查是否存在阻尼追踪约束
+            if "MMR-阻尼追踪" not in bone.constraints.keys():
+                continue
+
+            constraint = bone.constraints.get("MMR-阻尼追踪")
+            if not constraint:
+                continue
+
+            # 根据布尔值设置影响值
+            if context.active_pose_bone.mmr_bone.Damping_Tracking_bool:
+                # 启用约束
+                if bone.mmr_bone.Damping_Tracking_influence != 0.0:
+                    # 恢复之前保存的影响值
+                    constraint.influence = bone.mmr_bone.Damping_Tracking_influence
+                    modified_count += 1
+            else:
+                # 禁用约束
+                if constraint.influence != 0.0:
+                    # 存储当前影响值
+                    bone.mmr_bone.Damping_Tracking_influence = constraint.influence
+                    # 设置影响为0
+                    constraint.influence = 0
+                    modified_count += 1
+
+        # 是否插入关键帧
+        if context.active_pose_bone.mmr_bone.Insert_dt_keyframe:
+            keyframe_count = 0
+            for bone in selected_bones:
+                if "MMR-阻尼追踪" in bone.constraints.keys():
+                    constraint = bone.constraints["MMR-阻尼追踪"]
+                    constraint.keyframe_insert(data_path="influence")
+                    keyframe_count += 1
+
+            if keyframe_count > 0:
+                print(f"已插入 {keyframe_count} 个关键帧")
+        else:
+            if modified_count > 0:
+                print(f"成功修改 {modified_count} 个阻尼追踪约束")
+            else:
+                print(f"没有需要修改的阻尼追踪约束")
+
+
 
         return {'FINISHED'}
 
@@ -218,12 +305,60 @@ class Remove_Damping_Tracking(bpy.types.Operator):
             bone_chain = get_bone_chain()
 
             # 删除阻尼追踪约束
+            removed_count = 0  # 记录删除的约束数量
             for bone_name in bone_chain:
                 bone = obj.pose.bones.get(bone_name)
                 if bone:
+                    # 只删除名为"MMR-阻尼追踪"的约束
+                    constraint_to_remove = None
                     for constraint in bone.constraints:
-                        bone.constraints.remove(constraint)
-                        break
+                        if constraint.name == "MMR-阻尼追踪":
+                            constraint_to_remove = constraint
+                            break
+
+                    if constraint_to_remove:
+                        bone.constraints.remove(constraint_to_remove)
+                        removed_count += 1
+
+            # 删除 _MMR-Target 辅助骨骼
+            target_bones_to_remove = []
+            for bone_name in bone_chain:
+                if bone_name.endswith("_MMR-Target"):
+                    target_bones_to_remove.append(bone_name)
+
+            # 如果有辅助骨骼需要删除
+            if target_bones_to_remove:
+                # 切换到编辑模式删除骨骼
+                bpy.ops.object.mode_set(mode='EDIT')
+                try:
+                    edit_bones = obj.data.edit_bones
+                    removed_bones_count = 0
+
+                    for target_bone_name in target_bones_to_remove:
+                        # 检查编辑骨骼是否存在
+                        if target_bone_name in edit_bones:
+                            edit_bone = edit_bones[target_bone_name]
+                            # 删除编辑骨骼
+                            edit_bones.remove(edit_bone)
+                            removed_bones_count += 1
+
+                finally:
+                    # 恢复原始模式
+                    bpy.ops.object.mode_set(mode=current_mode)
+
+                # 操作完成后给出提示
+                if removed_count > 0 and removed_bones_count > 0:
+                    print(f"成功删除 {removed_count} 个阻尼追踪约束和 {removed_bones_count} 个辅助骨骼")
+                elif removed_count > 0:
+                    print(f"成功删除 {removed_count} 个阻尼追踪约束")
+                elif removed_bones_count > 0:
+                    print(f"成功删除 {removed_bones_count} 个辅助骨骼")
+            else:
+                # 操作完成后给出提示
+                if removed_count > 0:
+                    print(f"成功删除 {removed_count} 个阻尼追踪约束")
+                else:
+                    print(f"未找到阻尼追踪约束")
 
         return {'FINISHED'}
 
@@ -407,7 +542,7 @@ class Assign_Rigidbody(bpy.types.Operator):
         description="The distance scale for creating extra non-collision constraints while building physics",  # 属性描述
         min=0,  # 最小值
         soft_max=50,  # 软最大值
-        default=1.4,  # 默认值
+        default=1.6,  # 默认值
     )
 
     # 碰撞边距属性
@@ -472,6 +607,9 @@ class Assign_Rigidbody(bpy.types.Operator):
         root.mmr.physics_bool = True # 标记开启物理
 
         collection_name = F"{root.name}_mmr_temp_object"
+
+        # 获取当前视图层
+        view_layer = bpy.context.view_layer
 
         # 判断集合是否存在
         if collection_name not in bpy.data.collections:
@@ -1037,6 +1175,16 @@ class Remove_physics(bpy.types.Operator):
 
         bpy.context.view_layer.objects.active = root  # 设置活动对象为根
 
+        # 删除temp_object集合
+        # 从父集合中移除
+        for parent_coll in bpy.data.collections:
+            if temp_object.name in parent_coll.children:
+                parent_coll.children.unlink(temp_object)
+                break
+
+        # 删除集合本身
+        bpy.data.collections.remove(temp_object)
+
         # 标记未构建
         root.mmr.mmr_root_is_built = False
 
@@ -1342,5 +1490,98 @@ class Select_All_Rigid_Bodies(bpy.types.Operator):
                     if obj.rigid_body:
 
                         obj.select_set(True)
+
+        return {'FINISHED'}
+
+# 设置选择骨骼的约束影响
+class Set_Constraint_Influence(bpy.types.Operator):
+    bl_idname = "mmr.set_constraint_influence"
+    bl_label = "Set Constraint Influence"
+    bl_options = {'REGISTER', 'UNDO'}
+    bl_description = "设置选择骨骼的约束影响"
+
+    def _get_constraint_name(self, context):
+        """根据枚举值获取约束名称"""
+        mmr_obj = context.object.mmr
+        if mmr_obj.constraintswitchtool_name_enum == "0":
+            return mmr_obj.constraintswitchtool_name
+        elif mmr_obj.constraintswitchtool_name_enum == "1":
+            return "mmr_physics"
+        elif mmr_obj.constraintswitchtool_name_enum == "2":
+            return "mmd_tools_rigid_track"
+        elif mmr_obj.constraintswitchtool_name_enum == "3":
+            return "MMR-阻尼追踪"
+        return ""
+
+    def execute(self, context):
+        obj = context.object
+        if not obj or obj.type != 'ARMATURE':
+            return {'CANCELLED'}
+
+        # 获取约束名称
+        constraint_name = self._get_constraint_name(context)
+        if not constraint_name:
+            self.report({'ERROR'}, "未指定约束名称")
+            return {'CANCELLED'}
+
+        # 获取选中骨骼列表
+        selected_bones = [bone for bone in obj.pose.bones if bone.select]
+
+        # 检查是否有选中的骨骼
+        if not selected_bones:
+            self.report({'ERROR'}, "请选择骨骼")
+            return {'CANCELLED'}
+
+        modified_count = 0  # 记录修改的约束数量
+        active_bone = context.active_pose_bone
+        enable = active_bone.mmr_bone.Constraint_bool if active_bone else False
+
+        for bone in selected_bones:
+            # 检查是否存在目标约束
+            constraint = bone.constraints.get(constraint_name)
+            if not constraint:
+                continue
+
+            if enable:
+                # 启用约束：获取影响值
+                if active_bone and active_bone.mmr_bone.Use_manual_influence:
+                    # 手动模式：使用活动骨骼的设置值，统一应用到所有骨骼
+                    target_influence = active_bone.mmr_bone.Constraint_influence
+                else:
+                    # 每骨骼模式：恢复各自之前保存的影响值
+                    target_influence = bone.mmr_bone.Constraint_influence
+
+                if target_influence != 0.0 and constraint.influence != target_influence:
+                    constraint.influence = target_influence
+                    modified_count += 1
+            else:
+                # 禁用约束：存储当前影响值并设为0
+                if constraint.influence != 0.0:
+                    # 如果需要保持变换，先记录骨骼当前视觉矩阵
+                    if active_bone and active_bone.mmr_bone.Disable_keep_transform:
+                        saved_matrix = bone.matrix.copy()
+                    bone.mmr_bone.Constraint_influence = constraint.influence
+                    constraint.influence = 0.0
+                    # 烘焙约束效果到骨骼姿态
+                    if active_bone and active_bone.mmr_bone.Disable_keep_transform:
+                        bone.matrix = saved_matrix
+                    modified_count += 1
+
+        # 是否插入关键帧
+        if active_bone and active_bone.mmr_bone.Insert_constraint_keyframe:
+            keyframe_count = 0
+            for bone in selected_bones:
+                constraint = bone.constraints.get(constraint_name)
+                if constraint:
+                    constraint.keyframe_insert(data_path="influence")
+                    keyframe_count += 1
+
+            if keyframe_count > 0:
+                print(f"已插入 {keyframe_count} 个关键帧")
+        else:
+            if modified_count > 0:
+                print(f"成功修改 {modified_count} 个约束")
+            else:
+                print(f"没有需要修改的约束")
 
         return {'FINISHED'}

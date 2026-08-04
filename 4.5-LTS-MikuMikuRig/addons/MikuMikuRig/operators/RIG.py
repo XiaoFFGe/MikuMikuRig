@@ -13,7 +13,7 @@ from addons.MikuMikuRig.config import __addon_name__
 
 class polartargetOperator(bpy.types.Operator):
     '''Optimization MMD Armature'''
-    bl_idname = "object.mmd_polars_target"
+    bl_idname = "mmr.mmd_polars_target"
     bl_label = "Optimization MMD Armature"
 
     # 确保在操作之前备份数据，用户撤销操作时可以恢复
@@ -369,14 +369,10 @@ class mmrrigOperator(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='EDIT')
             D_edit_bones = D_armature_obj.data.edit_bones
 
-            # 进入 C 骨架的编辑模式
-            bpy.context.view_layer.objects.active = C_armature_obj
-            bpy.ops.object.mode_set(mode='EDIT')
-            C_edit_bones = C_armature_obj.data.edit_bones
-
-            # 获取 A 骨骼和 B 骨骼
+            # 获取 A 骨骼（编辑骨骼）
             A_bone = D_edit_bones.get(A)
-            B_bone = C_edit_bones.get(B)
+            # 获取 B 骨骼（使用数据骨骼获取静态位置）
+            B_bone = C_armature_obj.data.bones.get(B)
 
             if not A_bone or not B_bone:
                 print(f"未找到 {A} 骨骼或 {B} 骨骼，请检查名称。")
@@ -388,8 +384,8 @@ class mmrrigOperator(bpy.types.Operator):
 
             # 转换 B 骨骼的头和尾坐标到世界空间
             world_matrix_C = C_armature_obj.matrix_world
-            world_head_B = world_matrix_C @ B_bone.head
-            world_tail_B = world_matrix_C @ B_bone.tail
+            world_head_B = world_matrix_C @ B_bone.head_local
+            world_tail_B = world_matrix_C @ B_bone.tail_local
 
             # 转换世界空间坐标到 D 骨架的局部空间
             world_matrix_D = D_armature_obj.matrix_world
@@ -1693,7 +1689,7 @@ class mmrrigOperator(bpy.types.Operator):
 
 class mmrexportvmdactionsOperator(bpy.types.Operator):
     '''Export VMD actions'''
-    bl_idname = "object.mmr_export_vmd"
+    bl_idname = "mmr.mmr_export_vmd"
     bl_label = "Export VMD actions"
 
     # 确保在操作之前备份数据，用户撤销操作时可以恢复
@@ -1742,7 +1738,7 @@ class mmrexportvmdactionsOperator(bpy.types.Operator):
         return {'FINISHED'}
 
 class MahyPdtOperator(bpy.types.Operator):
-    bl_idname = "object.mdtsu_ops"
+    bl_idname = "mmr.mdtsu_ops"
     bl_label = "Add Emoji Panel"
     # 确保在操作之前备份数据，用户撤销操作时可以恢复
     bl_options = {'REGISTER', 'UNDO'}

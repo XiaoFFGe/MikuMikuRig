@@ -7,7 +7,7 @@ from addons.MikuMikuRig.operators.Physics import Add_Damping_Tracking, Remove_Da
     Show_Rigidbody, Select_Collision_Group, Update_World, Select_By_Type, \
     mmdrigidbody_to_mmrrigidbody, Remove_physics, Show_Joint, Select_Collision_Group_For_Joint, \
     Select_By_Type_For_Joint, mmr_rigidbody_to_mmd_rigidbody, Clear_Collision_Group_Mask, Bake_Physics_To_Bone, \
-    Select_All_Rigid_Bodies
+    Select_All_Rigid_Bodies, Set_Damping_Tracking_Influence, Set_Constraint_Influence
 from addons.MikuMikuRig.operators.RIG import mmrexportvmdactionsOperator, MahyPdtOperator, \
     MMR_OT_Batch_Adjust_Shape_Key, MMR_OT_Insert_Keyframe, MMR_OT_Unselect_All_Key, \
     MMR_OT_Select_All_Key, MMR_OT_Select_Keyframe_Key, MMR_OT_Weight_Bone_Parent_Add, MMR_OT_Weight_Bone_Parent_Del, \
@@ -16,7 +16,6 @@ from addons.MikuMikuRig.operators.RIG import mmrexportvmdactionsOperator, MahyPd
     MMR_OT_Add_Automatic_IK_Bone_Chain_Separator, MMR_OT_Designated_Bone_Chain, MMR_OT_Controller_Wireframe_Width
 from addons.MikuMikuRig.operators.RIG import mmrrigOperator
 from addons.MikuMikuRig.operators.RIG import polartargetOperator
-from addons.MikuMikuRig.operators.mmd_rig_physics import MMD_RIG_PHYSICS_BUILD
 from addons.MikuMikuRig.operators.redirect import MMR_redirect, MMR_Import_VMD
 from addons.MikuMikuRig.operators.reload import MMR_OT_OpenPresetFolder
 from common.i18n.i18n import i18n
@@ -626,12 +625,6 @@ class Physics_Panel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = "MMR"
 
-    __RIGID_SIZE_MAP = {
-        "SPHERE": ("Radius",),
-        "BOX": ("X", "Y", "Z"),
-        "CAPSULE": ("Radius", "Height"),
-    }
-
     def draw(self, context: bpy.types.Context):
         layout = self.layout
         mmr = context.object.mmr
@@ -710,10 +703,18 @@ class Damping_Tracking(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         mmr = context.object.mmr
+        bone = context.active_pose_bone
         layout.prop(mmr, "Softness", text=i18n("Softness"))
         row = layout.row(align=True)
         row.operator(Add_Damping_Tracking.bl_idname, text="Add Damping Tracking")
         row.operator(Remove_Damping_Tracking.bl_idname, text="", icon='TRASH')
+        if bone:
+            layout.label(text=i18n("Select number of bones: ") + str(len([bone for bone in context.object.pose.bones if bone.select])))
+            row = layout.row(align=True)
+            row.prop(bone.mmr_bone, "Damping_Tracking_bool", text=i18n("Turn on" if bone.mmr_bone.Damping_Tracking_bool else "Turn off"), toggle=True)
+            row.operator(Set_Damping_Tracking_Influence.bl_idname, text=i18n("Set Influence"))
+            row.prop(bone.mmr_bone, "Insert_dt_keyframe", text="", icon="KEYFRAME")
+
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
@@ -728,6 +729,13 @@ class MMR_Rigid_body_PT(bpy.types.Panel):
     bl_category = "MMR"
     bl_parent_id = "SCENE_PT_MMR_Rig_3"
     bl_options = {'DEFAULT_CLOSED'}
+
+    # 刚体形状对应的尺寸参数名称映射
+    __RIGID_SIZE_MAP = {
+        "SPHERE": ("Radius",),
+        "BOX": ("X", "Y", "Z"),
+        "CAPSULE": ("Radius", "Height"),
+    }
 
     def draw(self, context):
         layout = self.layout
@@ -757,7 +765,11 @@ class MMR_Rigid_body_PT(bpy.types.Panel):
         if mmd_root and (mmd_root.mmd_type or mmd_root.mmd_type == 'ROOT'):
 
             if mmd_root:
-                row.operator(MMD_RIG_PHYSICS_BUILD.bl_idname, text="Physics", icon="PHYSICS", depress=mmd_root.mmd_root.is_built)
+                # Physics 按钮
+                if not mmd_root.mmd_root.is_built:
+                    row.operator("mmd_tools.build_rig", text="Physics", icon="PHYSICS", depress=False)
+                else:
+                    row.operator("mmd_tools.clean_rig", text="Physics", icon="PHYSICS", depress=True)
 
                 row.operator(Show_Rigidbody.bl_idname, text="Show Rigidbody", icon="RIGID_BODY", depress=mmd_root.mmr.show_rigid_bodies)
                 row.operator(Show_Joint.bl_idname, text="Show Joint", icon="RIGID_BODY_CONSTRAINT", depress=mmd_root.mmr.joint_show)
@@ -978,7 +990,7 @@ class MMR_Rigidbody_Constraint_PT(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
-        return context.active_object.rigid_body_constraint is not None
+        return context.active_object is not None
 
 # 刚体选择
 class MMRSelect_PT_Rigidbody(bpy.types.Panel):
@@ -1019,3 +1031,46 @@ class MMR_PT_Select_Constructability(bpy.types.Panel):
     @classmethod
     def poll(cls, context: bpy.types.Context):
         return context.active_object.rigid_body_constraint is not None
+
+# 骨骼约束开关工具
+@reg_order(5)
+class MMR_Bone_Constraint_Switch_PT(bpy.types.Panel):
+    bl_idname = "MMR_PT_Bone_Constraint_Switch"
+    bl_label = "Bone Constraint Switch Tool"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    bl_category = "MMR"
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.object
+        bone = context.active_pose_bone
+
+        if bone:
+            mmr_bone = bone.mmr_bone
+            mmr_obj = obj.mmr
+
+            # 显示选中骨骼数量
+            layout.label(text=i18n("Select number of bones: ") + str(len([bone for bone in context.object.pose.bones if bone.select])))
+
+            # 约束名称
+            layout.prop(mmr_obj, "constraintswitchtool_name_enum")
+            if mmr_obj.constraintswitchtool_name_enum == "0":
+                layout.prop(mmr_obj, "constraintswitchtool_name", text=i18n("Constraint Name"))
+
+            # 启用时允许手动设置影响值
+            if mmr_bone.Constraint_bool:
+                row = layout.row(align=True)
+                row.prop(mmr_bone, "Use_manual_influence", text="", icon="PROP_CON" if mmr_bone.Use_manual_influence else "PROP_OFF")
+                row.prop(mmr_bone, "Constraint_influence", text=i18n("Influence"), slider=True)
+
+            row = layout.row(align=True)
+            row.prop(mmr_bone, "Constraint_bool", text="", icon="CHECKMARK" if mmr_bone.Constraint_bool else "X", toggle=True)
+            row.prop(mmr_bone, "Disable_keep_transform", text="", icon="SNAP_ON")
+            row.prop(mmr_bone, "Insert_constraint_keyframe", text="", icon="KEYFRAME")
+   
+            row.operator(Set_Constraint_Influence.bl_idname, text=i18n("Set Influence"))
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        return context.active_object is not None

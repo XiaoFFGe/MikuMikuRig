@@ -129,8 +129,12 @@ dictionary = {
         ("", "Other Settings"): "其他设置",
         ("", "No MMR Rigidbody"): "不使用MMR刚体",
         ("", "Controller Wireframe Width"): "控制器线框宽度",
-
-
+        ("", "Turn on"): "开启",
+        ("", "Turn off"): "关闭",
+        ("", "Set Influence"): "设置影响",
+        ("", "Select number of bones: "): "选择骨骼数：",
+        ("*", "Bone Constraint Switch Tool"): "骨骼约束开关工具",
+        ("", "Constraint Name"): "约束名称",
     }
 }
 
