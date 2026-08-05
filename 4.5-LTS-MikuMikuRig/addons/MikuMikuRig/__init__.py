@@ -19,7 +19,7 @@ bl_info = {
     "name": "MikuMikuRig",
     "author": "小峰峰哥l",
     "blender": (4, 5, 0),
-    "version": (3,20),
+    "version": (3,85),
     "description": "MMD骨骼优化工具",
     "tracker_url": "https://space.bilibili.com/2109816568?spm_id_from=333.1007.0.0",
     "support": "COMMUNITY",
@@ -135,8 +135,13 @@ def register():
     print("正在注册")  # 打印正在注册的提示信息
     # 注册类
     auto_load.init()
+
     auto_load.register()
     add_properties(_addon_properties)
+
+    # 设置 Legacy 场景属性（MMR_LEGACY_property 已由 auto_load 注册）
+    from .legacy import MMR_LEGACY_property
+    bpy.types.Scene.mmr_legacy_property = bpy.props.PointerProperty(type=MMR_LEGACY_property)
 
     bpy.utils.register_class(MMR_property)
     bpy.types.Object.mmr = bpy.props.PointerProperty(type=MMR_property)
@@ -166,15 +171,32 @@ def register():
 
     # 国际化（多语言支持相关操作）
     load_dictionary(dictionary)
+
+    # 加载 Legacy 翻译并合并到主词典
+    import os as _os
+    from .legacy.translation import load_l10n_dict
+    _legacy_po_path = _os.path.join(_os.path.dirname(_os.path.realpath(__file__)), "legacy", "MMR_translate_CN.po")
+    if _os.path.exists(_legacy_po_path):
+        _legacy_dict = load_l10n_dict(_legacy_po_path)
+        load_dictionary(_legacy_dict)
+        print("Legacy 翻译已合并")
+
     bpy.app.translations.register(__addon_name__, common_dictionary)
+
     print("{}插件已安装。".format(bl_info["name"]))
 
 def unregister():
     # 国际化（多语言支持相关操作）
     bpy.app.translations.unregister(__addon_name__)
-    # 注销类
+
+    # 清理 Legacy 场景属性
+    if hasattr(bpy.types.Scene, 'mmr_legacy_property'):
+        del bpy.types.Scene.mmr_legacy_property
+
+    # 注销类（auto_load 统一处理所有模块，包括 legacy）
     auto_load.unregister()
     remove_properties(_addon_properties)
+
     bpy.utils.unregister_class(MMR_property)
     del bpy.types.Object.mmr
 

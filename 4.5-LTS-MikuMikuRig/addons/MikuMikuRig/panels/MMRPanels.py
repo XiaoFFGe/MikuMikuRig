@@ -22,6 +22,15 @@ from common.i18n.i18n import i18n
 from ....common.types.framework import reg_order
 from addons.MikuMikuRig.config import __addon_name__
 
+
+def _mmr_panel_poll(context):
+    """主版本面板 poll：use_legacy_mode=True 时隐藏"""
+    prefs = context.preferences.addons.get("MikuMikuRig")
+    if prefs is not None and getattr(prefs.preferences, 'use_legacy_mode', False):
+        return False
+    return True
+
+
 # UL类
 class MMR_UL_key(bpy.types.UIList):
 
@@ -79,6 +88,13 @@ class MMR_key_Options(bpy.types.Panel):
 
     bl_label = "MMR Key Options"
     bl_idname = "SCENE_PT_MMR_Key_Options_0"
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
+        return context.active_object is not None
+
     bl_space_type = "VIEW_3D"
     bl_region_type = 'UI'
     # name of the side panel
@@ -108,20 +124,18 @@ class MMR_key_Options(bpy.types.Panel):
             row.operator(MMR_OT_Insert_Keyframe.bl_idname, icon="LAYER_ACTIVE", text="")
             row.prop(obj.mmr, "use_keyframe_insert_auto", text='',icon='KEYFRAME')
 
-    @classmethod
-    def poll(cls, context: bpy.types.Context):
-        return context.active_object
-
 # MMR 主item面板
 class MMR_item_panel(bpy.types.Panel):
     bl_label = "MMR Rig Options"
     bl_idname = "Q_PT_MMR_Item_0"
-    bl_category = "Item"
     bl_space_type = "VIEW_3D"
     bl_region_type = 'UI'
+    bl_category = "Item"
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         # 检查是否有活动对象
         if context.active_object is not None:
             # 检查type是否为ARMATURE
@@ -146,6 +160,8 @@ class IK_FK_fxer(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         # 检查是否有活动对象
         if context.active_object is not None:
             # 检查type是否为ARMATURE
@@ -194,6 +210,8 @@ class MMR_FK_limb_follow(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         # 检查是否有活动对象
         if context.active_object is not None:
             # 检查type是否为ARMATURE
@@ -255,6 +273,8 @@ class Finger_IK_FK_fxer(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         # 检查是否有活动对象
         if context.active_object is not None:
             # 检查type是否为ARMATURE
@@ -338,6 +358,12 @@ class MMD_Rig_Opt(bpy.types.Panel):
     # name of the side panel
     bl_category = "MMR"
 
+    @classmethod
+    def poll(cls, context):
+        if not _mmr_panel_poll(context):
+            return False
+        return True
+
     def draw(self, context: bpy.types.Context):
 
         prefs = context.preferences.addons[__addon_name__].preferences
@@ -399,6 +425,9 @@ class MMD_Rig_Opt(bpy.types.Panel):
                         box.label(text=i18n("Other Settings"), icon='BRUSHES_ALL')
                         # 不使用MMR刚体
                         box.prop(prefs, "no_mmr_rigidbody", text=i18n("No MMR Rigidbody"))
+                        # 启用 Legacy 0.56 版本功能
+                        box.prop(prefs, "use_legacy_mode", text=i18n("Enable Legacy 0.56 Version"))
+
                         # 控制器线框宽度
                         row = box.row()
                         row.prop(prefs, "controller_wireframe_width", text=i18n("Controller Wireframe Width"))
@@ -525,6 +554,8 @@ class Set_constraints(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
+        if not _mmr_panel_poll(context):
+            return False
         if context.active_bone is None:
             return False
         else:
@@ -571,6 +602,8 @@ class MMD_Rig_Opt_Polar(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object is not None
 
 @reg_order(3)
@@ -614,6 +647,8 @@ class MMD_Arm_Opt(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object is not None
 
 # 物理面板
@@ -688,6 +723,8 @@ class Physics_Panel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object is not None
 
 @reg_order(0)
@@ -718,6 +755,8 @@ class Damping_Tracking(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object is not None
 
 @reg_order(1)
@@ -910,6 +949,8 @@ class MMR_Rigid_body_PT(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object is not None
 
 @reg_order(2)
@@ -990,6 +1031,8 @@ class MMR_Rigidbody_Constraint_PT(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object is not None
 
 # 刚体选择
@@ -1010,6 +1053,8 @@ class MMRSelect_PT_Rigidbody(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object.rigid_body is not None
 
 # 刚体约束选择
@@ -1030,6 +1075,8 @@ class MMR_PT_Select_Constructability(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object.rigid_body_constraint is not None
 
 # 骨骼约束开关工具
@@ -1073,4 +1120,6 @@ class MMR_Bone_Constraint_Switch_PT(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object is not None

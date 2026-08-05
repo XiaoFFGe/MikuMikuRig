@@ -135,6 +135,7 @@ dictionary = {
         ("", "Select number of bones: "): "选择骨骼数：",
         ("*", "Bone Constraint Switch Tool"): "骨骼约束开关工具",
         ("", "Constraint Name"): "约束名称",
+        ("", "Enable Legacy 0.56 Version"): "启用 Legacy 0.56 版本功能",
     }
 }
 

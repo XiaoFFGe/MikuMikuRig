@@ -62,4 +62,38 @@ class MikuMikuRigPreferences(bpy.types.AddonPreferences):
         default=True,
         description="人物四肢跟随"
     )
+    # 使用 Legacy 版本（William的0.56版本）
+    use_legacy_mode: BoolProperty(
+        default=False,
+        description="启用LaoBro的0.56版本功能"
+    )
+    # 弯曲IK骨骼
+    bent_IK_bone: BoolProperty(
+        default=False,
+        description="弯曲IK骨骼"
+    )
+    # 肩膀联动
+    auto_shoulder: BoolProperty(
+        default=False,
+        description="肩膀联动"
+    )
+    # 极向目标
+    pole_target: BoolProperty(
+        default=False,
+        description="极向目标"
+    )
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "no_mmr_rigidbody")
+        layout.prop(self, "controller_wireframe_width")
+        layout.prop(self, "left_ik_fk_preference")
+        layout.prop(self, "right_ik_fk_preference")
+        layout.prop(self, "left_leg_ik_fk_preference")
+        layout.prop(self, "right_leg_ik_fk_preference")
+        layout.prop(self, "both_eye_follow")
+        layout.prop(self, "neck_follow")
+        layout.prop(self, "head_follow")
+        layout.prop(self, "arm_to_leg_following")
+        layout.prop(self, "use_legacy_mode")
 
