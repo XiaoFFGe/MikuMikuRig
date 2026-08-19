@@ -4,6 +4,7 @@ import bpy
 import json
 import os
 
+
 class mmrmakepresetsOperator(bpy.types.Operator):
     '''make presets'''
     bl_idname = "object.mmr_make_presets"
@@ -139,7 +140,7 @@ class mmrdesignatedOperator(bpy.types.Operator):
                 # 更新提示
                 mmr.json_txt = "请选择: " + fourth_key.removeprefix('p-') + '--' + config[fourth_key]
 
-                # 选择骨骼
+                # 选择骨骼（Blender 4.0+ 中 Bone.select 已移除，改用 pose.bones）
                 for Bone in mmd_arm.pose.bones:
                     if Bone.name == fourth_key.removeprefix('p-'):
                         mmd_arm.data.bones.active = mmd_arm.data.bones.get(fourth_key.removeprefix('p-'))

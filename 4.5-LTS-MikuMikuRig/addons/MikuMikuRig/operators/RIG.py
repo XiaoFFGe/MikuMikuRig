@@ -206,6 +206,10 @@ class mmrrigOperator(bpy.types.Operator):
 
         mmr = context.object.mmr
 
+        # 选择的骨架
+        selected_arm = [arm for arm in bpy.data.objects if arm.select]
+        print("选择的骨架:", selected_arm)
+
         prefs = context.preferences.addons[__addon_name__].preferences
 
         # 获取当前运行的Py文件的路径
@@ -831,6 +835,7 @@ class mmrrigOperator(bpy.types.Operator):
             bpy.context.view_layer.objects.active = RIG
             bpy.ops.object.mode_set(mode='EDIT')  # 切到编辑模式
 
+            # 手指修正
             if mmr.f_pin:
                 for key, value in config.items():
                     if '03' in value:
@@ -841,7 +846,7 @@ class mmrrigOperator(bpy.types.Operator):
                                 if format(v_bone.head.x, '.4f') == format(v_bone.tail.x, '.4f'):
                                     if format(v_bone.head.y, '.4f') == format(v_bone.tail.y, '.4f'):
                                         pinky_parent = v_bone.parent.name
-                                        calculate_tail_coordinates(pinky_parent, value, RIG.name, distance=True,lengths=True)
+                                        calculate_tail_coordinates(pinky_parent, value, RIG.name, distance=True,lengths=True,scale=False)
 
             for bone in RIG.data.edit_bones:  # 遍历所有骨骼
                 bone.select = bone.name in finger_bone_R  # True=选中，False=不选
@@ -1672,6 +1677,14 @@ class mmrrigOperator(bpy.types.Operator):
         bpy.context.view_layer.objects.active = rigify
 
         self.report({'INFO'}, f"生成成功, 匹配骨骼数: {arm_number}")
+
+        # 多骨架生成
+        for arm in selected_arm:
+            if arm.name != mmd_arm.name:
+                bpy.ops.object.select_all(action='DESELECT')
+                arm.select_set(True)
+                bpy.context.view_layer.objects.active = arm
+                bpy.ops.object.mmr_rig()
 
         return {'FINISHED'}
 

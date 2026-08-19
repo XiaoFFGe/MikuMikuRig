@@ -5,21 +5,31 @@ from addons.MikuMikuRig.operators.MMRpresets import mmrmakepresetsOperator, mmrd
     MMR_OT_Designated
 from addons.MikuMikuRig.operators.Physics import Add_Damping_Tracking, Remove_Damping_Tracking, Assign_Rigidbody, \
     Show_Rigidbody, Select_Collision_Group, Update_World, Select_By_Type, \
-    mmdrigidbody_to_mmrrigidbody, Remove_physics, Show_Joint, Select_Collision_Group_For_Joint, Select_By_Type_For_Joint
+    mmdrigidbody_to_mmrrigidbody, Remove_physics, Show_Joint, Select_Collision_Group_For_Joint, \
+    Select_By_Type_For_Joint, mmr_rigidbody_to_mmd_rigidbody, Clear_Collision_Group_Mask, Bake_Physics_To_Bone, \
+    Select_All_Rigid_Bodies, Set_Damping_Tracking_Influence, Set_Constraint_Influence
 from addons.MikuMikuRig.operators.RIG import mmrexportvmdactionsOperator, MahyPdtOperator, \
     MMR_OT_Batch_Adjust_Shape_Key, MMR_OT_Insert_Keyframe, MMR_OT_Unselect_All_Key, \
     MMR_OT_Select_All_Key, MMR_OT_Select_Keyframe_Key, MMR_OT_Weight_Bone_Parent_Add, MMR_OT_Weight_Bone_Parent_Del, \
     MMR_OT_Import_Default_Weight_Bone_Parent, MMR_OT_Import_Default_Automatic_IK_Bone_Chain, \
     MMR_OT_Add_Automatic_IK_Bone_Chain, MMR_OT_Remove_Automatic_IK_Bone_Chain, \
-    MMR_OT_Add_Automatic_IK_Bone_Chain_Separator, MMR_OT_Designated_Bone_Chain
+    MMR_OT_Add_Automatic_IK_Bone_Chain_Separator, MMR_OT_Designated_Bone_Chain, MMR_OT_Controller_Wireframe_Width
 from addons.MikuMikuRig.operators.RIG import mmrrigOperator
 from addons.MikuMikuRig.operators.RIG import polartargetOperator
-from addons.MikuMikuRig.operators.mmd_rig_physics import MMD_RIG_PHYSICS_BUILD
 from addons.MikuMikuRig.operators.redirect import MMR_redirect, MMR_Import_VMD
 from addons.MikuMikuRig.operators.reload import MMR_OT_OpenPresetFolder
 from common.i18n.i18n import i18n
 from ....common.types.framework import reg_order
 from addons.MikuMikuRig.config import __addon_name__
+
+
+def _mmr_panel_poll(context):
+    """主版本面板 poll：use_legacy_mode=True 时隐藏"""
+    prefs = context.preferences.addons.get("MikuMikuRig")
+    if prefs is not None and getattr(prefs.preferences, 'use_legacy_mode', False):
+        return False
+    return True
+
 
 # UL类
 class MMR_UL_key(bpy.types.UIList):
@@ -30,7 +40,12 @@ class MMR_UL_key(bpy.types.UIList):
 
         if item.bool_value:
             layout.prop(item, "select", text="")
-        layout.label(text=item.name)
+
+        if obj.mmr.show_original_key_name:
+            layout.label(text=item.name)
+        else:
+            layout.label(text=item.zh_name)
+
         if item.bool_value:
             if not obj.mmr.direct_operation_shape_key:
                 layout.prop(item, "value", text="")
@@ -68,14 +83,22 @@ class MMR_UL_automatic_ik_bone_chain(bpy.types.UIList):
             row.prop(item, "name", text="", emboss=True)
 
 
+@reg_order(1)
 class MMR_key_Options(bpy.types.Panel):
 
     bl_label = "MMR Key Options"
     bl_idname = "SCENE_PT_MMR_Key_Options_0"
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
+        return context.active_object is not None
+
     bl_space_type = "VIEW_3D"
     bl_region_type = 'UI'
     # name of the side panel
-    bl_category = "Tool"
+    bl_category = "MMR"
 
     def draw(self, context: bpy.types.Context):
         layout = self.layout
@@ -94,17 +117,38 @@ class MMR_key_Options(bpy.types.Panel):
             row.operator(MMR_OT_Unselect_All_Key.bl_idname, icon="CANCEL", text="")
             row.operator(MMR_OT_Select_All_Key.bl_idname, icon="CHECKBOX_HLT", text="")
             row.operator(MMR_OT_Select_Keyframe_Key.bl_idname, icon="AUTOMERGE_ON", text="")
+            row.prop(obj.mmr, "show_original_key_name", icon='ASSET_MANAGER', text="")
 
             row = layout.row()
             row.prop(obj.mmr, "Batch_adjust_shape_key", text=i18n('Batch Adjustment'))
             row.operator(MMR_OT_Insert_Keyframe.bl_idname, icon="LAYER_ACTIVE", text="")
             row.prop(obj.mmr, "use_keyframe_insert_auto", text='',icon='KEYFRAME')
 
+# MMR 主item面板
+class MMR_item_panel(bpy.types.Panel):
+    bl_label = "MMR Rig Options"
+    bl_idname = "Q_PT_MMR_Item_0"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    bl_category = "Item"
+
     @classmethod
     def poll(cls, context: bpy.types.Context):
-        return context.active_object is not None
+        if not _mmr_panel_poll(context):
+            return False
+        # 检查是否有活动对象
+        if context.active_object is not None:
+            # 检查type是否为ARMATURE
+            if context.active_object.type == 'ARMATURE':
+                # 检查名称是否以"RIG"开头
+                if context.active_object.name.startswith("RIG"):
+                    return True
+        return False
 
-# IK-FK
+    def draw(self, context: bpy.types.Context):
+        layout = self.layout
+
+## IK-FK
 class IK_FK_fxer(bpy.types.Panel):
     bl_label = "MMR IK-FK"
     bl_idname = "Q_PT_MMR_IK_FK_0"
@@ -112,9 +156,12 @@ class IK_FK_fxer(bpy.types.Panel):
     bl_region_type = 'UI'
     # name of the side panel
     bl_category = "Item"
+    bl_parent_id = "Q_PT_MMR_Item_0"
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         # 检查是否有活动对象
         if context.active_object is not None:
             # 检查type是否为ARMATURE
@@ -151,6 +198,68 @@ class IK_FK_fxer(bpy.types.Panel):
             if bone.name == "thigh_parent.R":
                 row.prop(bone, '["IK_FK"]', text=i18n('Leg.R'))
 
+# FK跟随
+class MMR_FK_limb_follow(bpy.types.Panel):
+    bl_label = "MMR Follow"
+    bl_idname = "Q_PT_MMR_FK_Limb_Follow_0"
+    bl_category = "Item"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    bl_parent_id = "Q_PT_MMR_Item_0"
+
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
+        # 检查是否有活动对象
+        if context.active_object is not None:
+            # 检查type是否为ARMATURE
+            if context.active_object.type == 'ARMATURE':
+                # 检查名称是否以"RIG"开头
+                if context.active_object.name.startswith("RIG"):
+                    return True
+        return False
+
+    def draw(self, context: bpy.types.Context):
+        layout = self.layout
+
+        cx_obj = context.active_object
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "eyes":
+                layout.prop(bone, '["eyes_follow"]', text=i18n('Eyes'))
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "torso":
+                layout.prop(bone, '["head_follow"]', text=i18n('Head'))
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "torso":
+                layout.prop(bone, '["neck_follow"]', text=i18n('Neck'))
+
+        if cx_obj.pose.bones.get("upper_arm_parent.L") and cx_obj.pose.bones.get("upper_arm_parent.R"):
+            row = layout.row()
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "upper_arm_parent.L":
+                row.prop(bone, '["FK_limb_follow"]', text=i18n('Arm.L'))
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "upper_arm_parent.R":
+                row.prop(bone, '["FK_limb_follow"]', text=i18n('Arm.R'))
+
+        if cx_obj.pose.bones.get("thigh_parent.L") and cx_obj.pose.bones.get("thigh_parent.R"):
+            row = layout.row()
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "thigh_parent.L":
+                row.prop(bone, '["FK_limb_follow"]', text=i18n('Leg.L'))
+
+        for bone in cx_obj.pose.bones:
+            if bone.name == "thigh_parent.R":
+                row.prop(bone, '["FK_limb_follow"]', text=i18n('Leg.R'))
+
 # 手指 FK-IK
 class Finger_IK_FK_fxer(bpy.types.Panel):
     bl_label = "MMR Finger FK-IK"
@@ -159,9 +268,13 @@ class Finger_IK_FK_fxer(bpy.types.Panel):
     bl_region_type = 'UI'
     # name of the side panel
     bl_category = "Item"
+    bl_parent_id = "Q_PT_MMR_Item_0"
+
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         # 检查是否有活动对象
         if context.active_object is not None:
             # 检查type是否为ARMATURE
@@ -235,8 +348,6 @@ class Finger_IK_FK_fxer(bpy.types.Panel):
             if bone.name == "f_pinky.01_ik.R":
                 row.prop(bone, '["FK_IK"]', text=i18n('pinky')+'.R')
 
-
-
 # 控制器选项面板
 @reg_order(0)
 class MMD_Rig_Opt(bpy.types.Panel):
@@ -246,6 +357,12 @@ class MMD_Rig_Opt(bpy.types.Panel):
     bl_region_type = 'UI'
     # name of the side panel
     bl_category = "MMR"
+
+    @classmethod
+    def poll(cls, context):
+        if not _mmr_panel_poll(context):
+            return False
+        return True
 
     def draw(self, context: bpy.types.Context):
 
@@ -276,6 +393,45 @@ class MMD_Rig_Opt(bpy.types.Panel):
                 layout.prop(mmr, "extras_enabled", text=i18n("Extras"), toggle=True,icon="PREFERENCES")
 
                 if mmr.extras_enabled:
+
+                    # 偏好设置
+                    layout.prop(mmr, "preference", text=i18n("Preference"), icon="GEOMETRY_NODES", toggle=True)
+
+                    if mmr.preference:
+
+                        box = layout.box()
+
+                        box.label(text=i18n("IK/FK Preference"), icon='CON_KINEMATIC')
+
+                        row = box.row()
+                        row.prop(prefs, "left_ik_fk_preference",
+                                 text=i18n("Left Arm IK" if prefs.left_ik_fk_preference else "Left Arm FK"), toggle=True)
+                        row.prop(prefs, "right_ik_fk_preference",
+                                 text=i18n("Right Arm IK" if prefs.right_ik_fk_preference else "Right Arm FK"), toggle=True)
+
+                        row = box.row()
+                        row.prop(prefs, "left_leg_ik_fk_preference",
+                                 text=i18n("Left Leg IK" if prefs.left_leg_ik_fk_preference else "Left Leg FK"), toggle=True)
+                        row.prop(prefs, "right_leg_ik_fk_preference",
+                                 text=i18n("Right Leg IK" if prefs.right_leg_ik_fk_preference else "Right Leg FK"), toggle=True)
+
+                        box.label(text=i18n("Follow Settings"), icon='CON_SPLINEIK')
+                        box.prop(prefs, "both_eye_follow", text=i18n("Eyes"), toggle=True)
+                        row = box.row()
+                        row.prop(prefs, "head_follow", text=i18n("Head"), toggle=True)
+                        row.prop(prefs, "neck_follow", text=i18n("Neck"), toggle=True)
+                        box.prop(prefs, "arm_to_leg_following", text=i18n("Arm to leg"), toggle=True)
+
+                        box.label(text=i18n("Other Settings"), icon='BRUSHES_ALL')
+                        # 不使用MMR刚体
+                        box.prop(prefs, "no_mmr_rigidbody", text=i18n("No MMR Rigidbody"))
+                        # 启用 Legacy 0.56 版本功能
+                        box.prop(prefs, "use_legacy_mode", text=i18n("Enable Legacy 0.56 Version"))
+
+                        # 控制器线框宽度
+                        row = box.row()
+                        row.prop(prefs, "controller_wireframe_width", text=i18n("Controller Wireframe Width"))
+                        row.operator(MMR_OT_Controller_Wireframe_Width.bl_idname, text="", icon="SHADERFX")
 
                     row = layout.row()
                     row.prop(mmr, "Bend_the_bones", text=i18n("Bend the arm bones"))
@@ -331,8 +487,6 @@ class MMD_Rig_Opt(bpy.types.Panel):
                     if mmr.Shoulder_linkage:
                         layout.label(text=i18n("This option has a serious bug and should not be enabled"), icon='ERROR')
 
-                    layout.prop(mmr, "Upper_body_linkage", text=i18n("Upper body linkage"))
-
                     # 隐藏骨架
                     layout.prop(mmr, "Hide_mmd_skeleton", text=i18n("No Hide skeleton"))
 
@@ -360,8 +514,7 @@ class MMD_Rig_Opt(bpy.types.Panel):
                         box.prop(mmr, "panel_preset_E", text=i18n("E"))
                         box.prop(mmr, "panel_preset_O", text=i18n("O"))
                     layout.prop(mmr, "direct_operation_shape_key", text=i18n("Direct operation shape key"))
-                    # 不使用MMR刚体
-                    layout.prop(prefs, "no_mmr_rigidbody", text=i18n("No MMD Rigidbody"))
+
                     layout.prop(mmr, "Preset_editor", text=i18n("MMR Preset Editor"))
             else:
                 layout.scale_y = 1.2  # 这将使按钮的垂直尺寸加倍
@@ -401,6 +554,8 @@ class Set_constraints(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
+        if not _mmr_panel_poll(context):
+            return False
         if context.active_bone is None:
             return False
         else:
@@ -421,7 +576,7 @@ class Set_constraints(bpy.types.Panel):
             row.prop(mmr_bone, "Set_constraints", index=i, text=str(names[i]), toggle=True)
 
 # 骨骼重定向
-@reg_order(1)
+@reg_order(2)
 class MMD_Rig_Opt_Polar(bpy.types.Panel):
     bl_label = "Bone retargeting"
     bl_idname = "SCENE_PT_MMR_Rig_1"
@@ -447,9 +602,11 @@ class MMD_Rig_Opt_Polar(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object is not None
 
-@reg_order(2)
+@reg_order(3)
 class MMD_Arm_Opt(bpy.types.Panel):
     bl_label = "MMD tool"
     bl_idname = "SCENE_PT_MMR_Rig_2"
@@ -490,10 +647,12 @@ class MMD_Arm_Opt(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object is not None
 
 # 物理面板
-@reg_order(3)
+@reg_order(4)
 class Physics_Panel(bpy.types.Panel):
     bl_label = "Physics options"
     bl_idname = "SCENE_PT_MMR_Rig_3"
@@ -501,33 +660,28 @@ class Physics_Panel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = "MMR"
 
-    __RIGID_SIZE_MAP = {
-        "SPHERE": ("Radius",),
-        "BOX": ("X", "Y", "Z"),
-        "CAPSULE": ("Radius", "Height"),
-    }
-
     def draw(self, context: bpy.types.Context):
         layout = self.layout
         mmr = context.object.mmr
-        prefs = context.preferences.addons[__addon_name__].preferences
-
-        layout.label(text=i18n("Damping Tracking"))
-        layout.prop(mmr, "Softness", text=i18n("Softness"))
-        row = layout.row(align=True)
-        row.operator(Add_Damping_Tracking.bl_idname, text="Add Damping Tracking")
-        row.operator(Remove_Damping_Tracking.bl_idname, text="", icon='TRASH')
 
         layout.separator()
 
         obj = context.active_object
 
-        layout.use_property_split = True
-
         scene = context.scene
         rbw = scene.rigidbody_world
 
+        layout.use_property_split = False
+
+        row = layout.row(align=True)
+        row.label(text="Rigid Body Physics:", icon="PHYSICS")
+        row.operator(Update_World.bl_idname, text="Update World", icon="FILE_REFRESH")
+
+        layout.use_property_split = True
+
         if rbw:
+            layout.prop(rbw, "enabled", text=i18n('Global Rigidbody physical'))
+
             flow = layout.grid_flow(row_major=True, columns=0, even_columns=True, even_rows=False, align=True)
 
             col = flow.column()
@@ -548,27 +702,84 @@ class Physics_Panel(bpy.types.Panel):
 
             point_cache = rigidbody_world.point_cache
 
+            layout.use_property_split = False
+
             col = layout.column(align=True)
-            row = col.row(align=True)
+            row = col.row()
             row.enabled = not point_cache.is_baked
             row.prop(point_cache, "frame_start")
             row.prop(point_cache, "frame_end")
 
-            layout.use_property_split = False
-
-            layout.prop(rbw, "enabled", text=i18n('Global Rigidbody physical'))
-
-            row = layout.row(align=True)
-            row.label(text="Rigid Body Physics:", icon="PHYSICS")
-            row.operator(Update_World.bl_idname, text="Update World", icon="ERROR")
-
-            row = layout.row(align=True)
+            row = layout.row()
             if point_cache.is_baked is True:
                 row.operator("mmd_tools.ptcache_rigid_body_delete_bake", text="Delete Bake")
             else:
                 row.operator("mmd_tools.ptcache_rigid_body_bake", text="Bake")
 
-        layout.use_property_split = False
+            row = layout.row()
+            row.prop(mmr, "Physics_frame_step", text=i18n("Frame Step"))
+            # 烘焙物理到骨骼
+            row.operator(Bake_Physics_To_Bone.bl_idname)
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
+        return context.active_object is not None
+
+@reg_order(0)
+class Damping_Tracking(bpy.types.Panel):
+    bl_idname = "MMR_PT_Damping_Tracking"
+    bl_label = "Damping Tracking"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    bl_category = "MMR"
+    bl_parent_id = "SCENE_PT_MMR_Rig_3"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        mmr = context.object.mmr
+        bone = context.active_pose_bone
+        layout.prop(mmr, "Softness", text=i18n("Softness"))
+        row = layout.row(align=True)
+        row.operator(Add_Damping_Tracking.bl_idname, text="Add Damping Tracking")
+        row.operator(Remove_Damping_Tracking.bl_idname, text="", icon='TRASH')
+        if bone:
+            layout.label(text=i18n("Select number of bones: ") + str(len([bone for bone in context.object.pose.bones if bone.select])))
+            row = layout.row(align=True)
+            row.prop(bone.mmr_bone, "Damping_Tracking_bool", text=i18n("Turn on" if bone.mmr_bone.Damping_Tracking_bool else "Turn off"), toggle=True)
+            row.operator(Set_Damping_Tracking_Influence.bl_idname, text=i18n("Set Influence"))
+            row.prop(bone.mmr_bone, "Insert_dt_keyframe", text="", icon="KEYFRAME")
+
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
+        return context.active_object is not None
+
+@reg_order(1)
+class MMR_Rigid_body_PT(bpy.types.Panel):
+    bl_idname = "MMR_PT_Rigid_body"
+    bl_label = "Rigid Body"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    bl_category = "MMR"
+    bl_parent_id = "SCENE_PT_MMR_Rig_3"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    # 刚体形状对应的尺寸参数名称映射
+    __RIGID_SIZE_MAP = {
+        "SPHERE": ("Radius",),
+        "BOX": ("X", "Y", "Z"),
+        "CAPSULE": ("Radius", "Height"),
+    }
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.active_object
+        prefs = context.preferences.addons[__addon_name__].preferences
 
         row = layout.row()
         row.label(text=i18n("MMD Rigidbody"))
@@ -587,16 +798,20 @@ class Physics_Panel(bpy.types.Panel):
             i -= 1 # 循环次数减一
             active_obj = active_obj.parent # 上一级对象
 
+        mmd_root = active_obj
+
         # 检查活动物体是否是MMD模型
-        if active_obj and (active_obj.mmd_type or active_obj.mmd_type == 'ROOT'):
+        if mmd_root and (mmd_root.mmd_type or mmd_root.mmd_type == 'ROOT'):
 
-            if active_obj and not active_obj.mmd_root.is_built:
-                row.operator(MMD_RIG_PHYSICS_BUILD.bl_idname, text="Physics", icon="PHYSICS", depress=False)
-            else:
-                row.operator(MMD_RIG_PHYSICS_BUILD.bl_idname, text="Physics", icon="PHYSICS", depress=True)
+            if mmd_root:
+                # Physics 按钮
+                if not mmd_root.mmd_root.is_built:
+                    row.operator("mmd_tools.build_rig", text="Physics", icon="PHYSICS", depress=False)
+                else:
+                    row.operator("mmd_tools.clean_rig", text="Physics", icon="PHYSICS", depress=True)
 
-        row.operator(Show_Rigidbody.bl_idname, text="Show Rigidbody", icon="RIGID_BODY")
-        row.operator(Show_Joint.bl_idname, text="Show Joint", icon="RIGID_BODY_CONSTRAINT")
+                row.operator(Show_Rigidbody.bl_idname, text="Show Rigidbody", icon="RIGID_BODY", depress=mmd_root.mmr.show_rigid_bodies)
+                row.operator(Show_Joint.bl_idname, text="Show Joint", icon="RIGID_BODY_CONSTRAINT", depress=mmd_root.mmr.joint_show)
 
         if not context.scene.mmr.mmd_rigid_panel_bool:
             if obj is not None and obj.mmd_type == "RIGID_BODY":
@@ -649,130 +864,175 @@ class Physics_Panel(bpy.types.Panel):
         row.operator(Select_Collision_Group.bl_idname)
         row.operator(Select_By_Type.bl_idname)
 
+        layout.operator(Select_All_Rigid_Bodies.bl_idname)
+
         if not prefs.no_mmr_rigidbody:
 
-            layout.label(text=i18n("MMR Rigidbody"))
+            # 检查活动物体是否是MMD模型
+            if mmd_root and (mmd_root.mmd_type or mmd_root.mmd_type == 'ROOT'):
 
-            row = layout.row()
-            # MMR刚体
-            row.operator(Assign_Rigidbody.bl_idname)
-            # 解除物理
-            row.operator(Remove_physics.bl_idname)
-            # MMD刚体转换MMR刚体
-            layout.operator(mmdrigidbody_to_mmrrigidbody.bl_idname)
+                row = layout.row(align=True)
+                row.label(text=i18n("MMR Rigidbody"))
+                row.prop(context.scene.mmr, "mmr_rigid_panel_bool", text=i18n("Hide MMR Rigidbody"))
+
+                row = layout.row()
+
+                if mmd_root and not mmd_root.mmr.mmr_root_is_built:
+                    # MMR刚体
+                    row.operator(Assign_Rigidbody.bl_idname, icon="PHYSICS", depress=False)
+                else:
+                    # 解除物理
+                    row.operator(Remove_physics.bl_idname, icon="PHYSICS", depress=True)
+
+                row = layout.row()
+                # MMD刚体转换MMR刚体
+                row.operator(mmdrigidbody_to_mmrrigidbody.bl_idname)
+                # MMR刚体转换MMD刚体
+                row.operator(mmr_rigidbody_to_mmd_rigidbody.bl_idname)
+
+                row = layout.row()
+
+                # 清除碰撞组遮罩
+                row.operator(Clear_Collision_Group_Mask.bl_idname)
 
             mmr_bone = context.active_object.mmr_bone
 
             if mmr_bone.panel_bool:
 
-                mmr_bone = context.active_object.mmr_bone
+                if not context.scene.mmr.mmr_rigid_panel_bool:
 
-                row = layout.row(align=True)
-                row.prop(obj.rigid_body, "mass")
-                row.prop(obj.rigid_body, "restitution")
+                    mmr_bone = context.active_object.mmr_bone
 
-                row = layout.row(align=True)
-                row.prop(mmr_bone, "collision_group_index", text="Collision Group")
-                row.prop(obj.rigid_body, "friction")
+                    row = layout.row(align=True)
+                    row.prop(obj.rigid_body, "mass")
+                    row.prop(obj.rigid_body, "restitution")
 
-                col = layout.column(align=True)
-                row = col.row(align=True)
-                row.prop(mmr_bone, "rigidbody_type", text="Rigidbody Type", expand = True)
-                row = col.row(align=True)
-                row.prop(mmr_bone, "bone", icon="BONE_DATA")
+                    row = layout.row(align=True)
+                    row.prop(mmr_bone, "collision_group_index", text="Collision Group")
+                    row.prop(obj.rigid_body, "friction")
+
+                    col = layout.column(align=True)
+                    row = col.row(align=True)
+                    row.prop(mmr_bone, "rigidbody_type", text="Rigidbody Type", expand = True)
+                    row = col.row(align=True)
+                    row.prop(mmr_bone, "bone", icon="BONE_DATA")
 
 
-                col = layout.column(align=True)
-                col.label(text=i18n("collision collections:"))
-                c = col.row(align=True)
-                for i in range(10):
-                    c.prop(obj.rigid_body, "collision_collections", index=i, text=str(i), toggle=True)
-                c = col.row(align=True)
-                for i in range(10, 20):
-                    c.prop(obj.rigid_body, "collision_collections", index=i, text=str(i), toggle=True)
+                    col = layout.column(align=True)
+                    col.label(text=i18n("collision collections:"))
+                    c = col.row(align=True)
+                    for i in range(10):
+                        c.prop(obj.rigid_body, "collision_collections", index=i, text=str(i), toggle=True)
+                    c = col.row(align=True)
+                    for i in range(10, 20):
+                        c.prop(obj.rigid_body, "collision_collections", index=i, text=str(i), toggle=True)
 
-                # 碰撞组掩码部分
-                col = layout.column(align=True)
-                col.label(text=i18n("Collision Group Mask:"))
+                    # 碰撞组掩码部分
+                    col = layout.column(align=True)
+                    col.label(text=i18n("Collision Group Mask:"))
 
-                # 第一行显示 0-7 组
-                row = col.row(align=True)
-                for i in range(0, 8):
-                    row.prop(mmr_bone, "collision_group_mask", index=i, text=str(i), toggle=True)
+                    # 第一行显示 0-7 组
+                    row = col.row(align=True)
+                    for i in range(0, 8):
+                        row.prop(mmr_bone, "collision_group_mask", index=i, text=str(i), toggle=True)
 
-                # 第二行显示 8-15 组
-                row = col.row(align=True)
-                for i in range(8, 16):
-                    row.prop(mmr_bone, "collision_group_mask", index=i, text=str(i), toggle=True)
-
-                c = layout.column()
-                c.label(text="Damping")
-                row = c.row()
-                row.prop(obj.rigid_body, "linear_damping")
-                row.prop(obj.rigid_body, "angular_damping")
-
-            obj = context.active_object
-            rbc = obj.rigid_body_constraint
-            constraint = obj.rigid_body_constraint
-
-            if constraint:
-                if constraint.type == "GENERIC_SPRING":
-                    layout.label(text=i18n("Rigidbody Constraint"))
+                    # 第二行显示 8-15 组
+                    row = col.row(align=True)
+                    for i in range(8, 16):
+                        row.prop(mmr_bone, "collision_group_mask", index=i, text=str(i), toggle=True)
 
                     c = layout.column()
-                    c.prop(rbc, "object1")
-                    c.prop(rbc, "object2")
-
-                    layout.label(text=i18n("Limit(Location)"))
-                    row = layout.row(align=True)
-                    col = row.column(align=True)
-                    row = col.row(align=True)
-                    row.prop(rbc, "limit_lin_x_lower")
-                    row.prop(rbc, "limit_lin_x_upper")
-                    row = col.row(align=True)
-                    row.prop(rbc, "limit_lin_y_lower")
-                    row.prop(rbc, "limit_lin_y_upper")
-                    row = col.row(align=True)
-                    row.prop(rbc, "limit_lin_z_lower")
-                    row.prop(rbc, "limit_lin_z_upper")
-
-                    layout.label(text=i18n("Limit(Angle)"))
-                    row = layout.row(align=True)
-                    col = row.column(align=True)
-                    row = col.row(align=True)
-                    row.prop(rbc, "limit_ang_x_lower")
-                    row.prop(rbc, "limit_ang_x_upper")
-                    row = col.row(align=True)
-                    row.prop(rbc, "limit_ang_y_lower")
-                    row.prop(rbc, "limit_ang_y_upper")
-                    row = col.row(align=True)
-                    row.prop(rbc, "limit_ang_z_lower")
-                    row.prop(rbc, "limit_ang_z_upper")
-
-                    ob = context.object
-                    rbc = ob.rigid_body_constraint
-                    row = layout.row()
-
-                    col = row.column(align=True)
-                    col.label(text=i18n("Spring(Location)"))
-                    col.prop(rbc, "spring_stiffness_x", text="X Stiffness")
-                    col.prop(rbc, "spring_stiffness_y", text="Y Stiffness")
-                    col.prop(rbc, "spring_stiffness_z", text="Z Stiffness")
-
-                    col = row.column(align=True)
-                    col.label(text=i18n("Spring(Angle)"))
-                    col.prop(rbc, "spring_stiffness_ang_x", text="X Stiffness")
-                    col.prop(rbc, "spring_stiffness_ang_y", text="Y Stiffness")
-                    col.prop(rbc, "spring_stiffness_ang_z", text="Z Stiffness")
-
-                    row = layout.row()
-                    # 选择碰撞组
-                    row.operator(Select_Collision_Group_For_Joint.bl_idname)
-                    # 按类型选择
-                    row.operator(Select_By_Type_For_Joint.bl_idname)
+                    c.label(text="Damping")
+                    row = c.row()
+                    row.prop(obj.rigid_body, "linear_damping")
+                    row.prop(obj.rigid_body, "angular_damping")
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
+        return context.active_object is not None
+
+@reg_order(2)
+class MMR_Rigidbody_Constraint_PT(bpy.types.Panel):
+    bl_idname = "MMR_PT_Rigidbody_Constraint"
+    bl_label = "Rigidbody Constraint"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    bl_category = "MMR"
+    bl_parent_id = "SCENE_PT_MMR_Rig_3"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.active_object
+        rbc = obj.rigid_body_constraint
+        constraint = obj.rigid_body_constraint
+
+        if constraint:
+            if constraint.type == "GENERIC_SPRING":
+
+                c = layout.column()
+                c.prop(rbc, "object1")
+                c.prop(rbc, "object2")
+
+                c = layout.column()
+                c.prop(rbc, "use_override_solver_iterations", text="Override Iterations")
+                if rbc.use_override_solver_iterations:
+                    layout.prop(rbc, "solver_iterations", text="Iterations")
+
+                layout.label(text=i18n("Limit(Location)"))
+                row = layout.row(align=True)
+                col = row.column(align=True)
+                row = col.row(align=True)
+                row.prop(rbc, "limit_lin_x_lower")
+                row.prop(rbc, "limit_lin_x_upper")
+                row = col.row(align=True)
+                row.prop(rbc, "limit_lin_y_lower")
+                row.prop(rbc, "limit_lin_y_upper")
+                row = col.row(align=True)
+                row.prop(rbc, "limit_lin_z_lower")
+                row.prop(rbc, "limit_lin_z_upper")
+
+                layout.label(text=i18n("Limit(Angle)"))
+                row = layout.row(align=True)
+                col = row.column(align=True)
+                row = col.row(align=True)
+                row.prop(rbc, "limit_ang_x_lower")
+                row.prop(rbc, "limit_ang_x_upper")
+                row = col.row(align=True)
+                row.prop(rbc, "limit_ang_y_lower")
+                row.prop(rbc, "limit_ang_y_upper")
+                row = col.row(align=True)
+                row.prop(rbc, "limit_ang_z_lower")
+                row.prop(rbc, "limit_ang_z_upper")
+
+                ob = context.object
+                rbc = ob.rigid_body_constraint
+                row = layout.row()
+
+                col = row.column(align=True)
+                col.label(text=i18n("Spring(Location)"))
+                col.prop(rbc, "spring_stiffness_x", text="X Stiffness")
+                col.prop(rbc, "spring_stiffness_y", text="Y Stiffness")
+                col.prop(rbc, "spring_stiffness_z", text="Z Stiffness")
+
+                col = row.column(align=True)
+                col.label(text=i18n("Spring(Angle)"))
+                col.prop(rbc, "spring_stiffness_ang_x", text="X Stiffness")
+                col.prop(rbc, "spring_stiffness_ang_y", text="Y Stiffness")
+                col.prop(rbc, "spring_stiffness_ang_z", text="Z Stiffness")
+
+                row = layout.row()
+                # 选择碰撞组
+                row.operator(Select_Collision_Group_For_Joint.bl_idname)
+                # 按类型选择
+                row.operator(Select_By_Type_For_Joint.bl_idname)
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object is not None
 
 # 刚体选择
@@ -793,6 +1053,8 @@ class MMRSelect_PT_Rigidbody(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object.rigid_body is not None
 
 # 刚体约束选择
@@ -813,4 +1075,51 @@ class MMR_PT_Select_Constructability(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
         return context.active_object.rigid_body_constraint is not None
+
+# 骨骼约束开关工具
+@reg_order(5)
+class MMR_Bone_Constraint_Switch_PT(bpy.types.Panel):
+    bl_idname = "MMR_PT_Bone_Constraint_Switch"
+    bl_label = "Bone Constraint Switch Tool"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = 'UI'
+    bl_category = "MMR"
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.object
+        bone = context.active_pose_bone
+
+        if bone:
+            mmr_bone = bone.mmr_bone
+            mmr_obj = obj.mmr
+
+            # 显示选中骨骼数量
+            layout.label(text=i18n("Select number of bones: ") + str(len([bone for bone in context.object.pose.bones if bone.select])))
+
+            # 约束名称
+            layout.prop(mmr_obj, "constraintswitchtool_name_enum")
+            if mmr_obj.constraintswitchtool_name_enum == "0":
+                layout.prop(mmr_obj, "constraintswitchtool_name", text=i18n("Constraint Name"))
+
+            # 启用时允许手动设置影响值
+            if mmr_bone.Constraint_bool:
+                row = layout.row(align=True)
+                row.prop(mmr_bone, "Use_manual_influence", text="", icon="PROP_CON" if mmr_bone.Use_manual_influence else "PROP_OFF")
+                row.prop(mmr_bone, "Constraint_influence", text=i18n("Influence"), slider=True)
+
+            row = layout.row(align=True)
+            row.prop(mmr_bone, "Constraint_bool", text="", icon="CHECKMARK" if mmr_bone.Constraint_bool else "X", toggle=True)
+            row.prop(mmr_bone, "Disable_keep_transform", text="", icon="SNAP_ON")
+            row.prop(mmr_bone, "Insert_constraint_keyframe", text="", icon="KEYFRAME")
+   
+            row.operator(Set_Constraint_Influence.bl_idname, text=i18n("Set Influence"))
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        if not _mmr_panel_poll(context):
+            return False
+        return context.active_object is not None

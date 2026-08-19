@@ -1,4 +1,7 @@
 import bpy
+import json
+import os
+
 from bpy.app.handlers import persistent
 
 from .config import __addon_name__
@@ -15,8 +18,8 @@ from ...common.i18n.i18n import load_dictionary
 bl_info = {
     "name": "MikuMikuRig",
     "author": "小峰峰哥l",
-    "blender": (5, 0, 0),
-    "version": (5, 1, 1),
+    "blender": (4, 5, 0),
+    "version": (3,86),
     "description": "MMD骨骼优化工具",
     "tracker_url": "https://space.bilibili.com/2109816568?spm_id_from=333.1007.0.0",
     "support": "COMMUNITY",
@@ -29,7 +32,7 @@ _addon_properties = {}
 def sync_mmr_key_values(scene,depsgraph):
 
     # 获取目标对象
-    obj = bpy.context.active_object
+    obj = getattr(bpy.context, 'active_object', None)
 
     if not obj:
         return
@@ -63,7 +66,17 @@ def sync_mmr_key_values(scene,depsgraph):
             if idx == 0:
                 item.bool_value = False
 
+            # 读取json文件
+            with open(os.path.join(os.path.dirname(__file__), "operators/mmrkey.json"), "r", encoding="utf-8") as f:
+                mmr_key_json = json.load(f)
+                key_name = mmr_key_json.get(key.name)
+
             item.name = key.name
+            if key_name:
+                item.zh_name = key_name
+            else:
+                item.zh_name = key.name
+
             item.value = key.value
             item.meshkey_index = idx
             item.meshkey = key_obj.data.shape_keys
@@ -71,9 +84,15 @@ def sync_mmr_key_values(scene,depsgraph):
     # 获取批量调整值
     current_value1 = obj.mmr.Batch_adjust_shape_key
 
+    # 获取上一次批量调整值
+    last_batch_adjust_value = obj.mmr.last_batch_adjust_value
+
     # 如果值没有改变, 则不进行处理
     if current_value1 == obj.mmr.last_batch_adjust_value:
         return
+
+    # 改变了多少
+    change_value = current_value1 - last_batch_adjust_value
 
     # 更新存储的值
     obj.mmr.last_batch_adjust_value = current_value1
@@ -86,10 +105,10 @@ def sync_mmr_key_values(scene,depsgraph):
             if not obj.mmr.register_handler:
                 if not obj.mmr.direct_operation_shape_key:
                     # 同步到值
-                    key.value = current_value1
+                    key.value = key.value + change_value
                 else:
                     if meshkey:
-                        meshkey.key_blocks[key.meshkey_index].value = current_value1
+                        meshkey.key_blocks[key.meshkey_index].value = meshkey.key_blocks[key.meshkey_index].value + change_value
 
                 # 是否插入关键帧
                 if bpy.context.scene.tool_settings.use_keyframe_insert_auto:
@@ -116,8 +135,13 @@ def register():
     print("正在注册")  # 打印正在注册的提示信息
     # 注册类
     auto_load.init()
+
     auto_load.register()
     add_properties(_addon_properties)
+
+    # 设置 Legacy 场景属性（MMR_LEGACY_property 已由 auto_load 注册）
+    from .legacy import MMR_LEGACY_property
+    bpy.types.Scene.mmr_legacy_property = bpy.props.PointerProperty(type=MMR_LEGACY_property)
 
     bpy.utils.register_class(MMR_property)
     bpy.types.Object.mmr = bpy.props.PointerProperty(type=MMR_property)
@@ -147,15 +171,32 @@ def register():
 
     # 国际化（多语言支持相关操作）
     load_dictionary(dictionary)
+
+    # 加载 Legacy 翻译并合并到主词典
+    import os as _os
+    from .legacy.translation import load_l10n_dict
+    _legacy_po_path = _os.path.join(_os.path.dirname(_os.path.realpath(__file__)), "legacy", "MMR_translate_CN.po")
+    if _os.path.exists(_legacy_po_path):
+        _legacy_dict = load_l10n_dict(_legacy_po_path)
+        load_dictionary(_legacy_dict)
+        print("Legacy 翻译已合并")
+
     bpy.app.translations.register(__addon_name__, common_dictionary)
+
     print("{}插件已安装。".format(bl_info["name"]))
 
 def unregister():
     # 国际化（多语言支持相关操作）
     bpy.app.translations.unregister(__addon_name__)
-    # 注销类
+
+    # 清理 Legacy 场景属性
+    if hasattr(bpy.types.Scene, 'mmr_legacy_property'):
+        del bpy.types.Scene.mmr_legacy_property
+
+    # 注销类（auto_load 统一处理所有模块，包括 legacy）
     auto_load.unregister()
     remove_properties(_addon_properties)
+
     bpy.utils.unregister_class(MMR_property)
     del bpy.types.Object.mmr
 

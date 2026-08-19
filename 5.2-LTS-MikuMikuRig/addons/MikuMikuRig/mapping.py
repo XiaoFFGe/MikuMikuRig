@@ -457,7 +457,7 @@ class MMR_BAC_OT_Bake(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='POSE')
             bpy.ops.pose.select_all(action='DESELECT')
             for m in s.mappings:
-                s.get_owner_armature().bones.get(m.owner).select = True
+                s.get_owner_armature().pose.bones.get(m.owner).select = True
             # 打开约束进行烘培再关掉
             s.preview = True
             bpy.ops.nla.bake(

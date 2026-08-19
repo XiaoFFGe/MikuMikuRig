@@ -8,11 +8,12 @@ import bpy
 import numpy as np
 
 from addons.MikuMikuRig import has_keyframes_for_property
+from addons.MikuMikuRig.config import __addon_name__
 
 
 class polartargetOperator(bpy.types.Operator):
     '''Optimization MMD Armature'''
-    bl_idname = "object.mmd_polars_target"
+    bl_idname = "mmr.mmd_polars_target"
     bl_label = "Optimization MMD Armature"
 
     # 确保在操作之前备份数据，用户撤销操作时可以恢复
@@ -205,6 +206,12 @@ class mmrrigOperator(bpy.types.Operator):
 
         mmr = context.object.mmr
 
+        # 选择的骨架
+        selected_arm = [arm for arm in bpy.data.objects if arm.select]
+        print("选择的骨架:", selected_arm)
+
+        prefs = context.preferences.addons[__addon_name__].preferences
+
         # 获取当前运行的Py文件的路径
         current_file_path = __file__
         # 获取当前Py文件所在的文件夹路径
@@ -366,14 +373,10 @@ class mmrrigOperator(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='EDIT')
             D_edit_bones = D_armature_obj.data.edit_bones
 
-            # 进入 C 骨架的编辑模式
-            bpy.context.view_layer.objects.active = C_armature_obj
-            bpy.ops.object.mode_set(mode='EDIT')
-            C_edit_bones = C_armature_obj.data.edit_bones
-
-            # 获取 A 骨骼和 B 骨骼
+            # 获取 A 骨骼（编辑骨骼）
             A_bone = D_edit_bones.get(A)
-            B_bone = C_edit_bones.get(B)
+            # 获取 B 骨骼（使用数据骨骼获取静态位置）
+            B_bone = C_armature_obj.data.bones.get(B)
 
             if not A_bone or not B_bone:
                 print(f"未找到 {A} 骨骼或 {B} 骨骼，请检查名称。")
@@ -385,8 +388,8 @@ class mmrrigOperator(bpy.types.Operator):
 
             # 转换 B 骨骼的头和尾坐标到世界空间
             world_matrix_C = C_armature_obj.matrix_world
-            world_head_B = world_matrix_C @ B_bone.head
-            world_tail_B = world_matrix_C @ B_bone.tail
+            world_head_B = world_matrix_C @ B_bone.head_local
+            world_tail_B = world_matrix_C @ B_bone.tail_local
 
             # 转换世界空间坐标到 D 骨架的局部空间
             world_matrix_D = D_armature_obj.matrix_world
@@ -832,6 +835,7 @@ class mmrrigOperator(bpy.types.Operator):
             bpy.context.view_layer.objects.active = RIG
             bpy.ops.object.mode_set(mode='EDIT')  # 切到编辑模式
 
+            # 手指修正
             if mmr.f_pin:
                 for key, value in config.items():
                     if '03' in value:
@@ -842,7 +846,7 @@ class mmrrigOperator(bpy.types.Operator):
                                 if format(v_bone.head.x, '.4f') == format(v_bone.tail.x, '.4f'):
                                     if format(v_bone.head.y, '.4f') == format(v_bone.tail.y, '.4f'):
                                         pinky_parent = v_bone.parent.name
-                                        calculate_tail_coordinates(pinky_parent, value, RIG.name, distance=True,lengths=True)
+                                        calculate_tail_coordinates(pinky_parent, value, RIG.name, distance=True,lengths=True,scale=False)
 
             for bone in RIG.data.edit_bones:  # 遍历所有骨骼
                 bone.select = bone.name in finger_bone_R  # True=选中，False=不选
@@ -1475,26 +1479,30 @@ class mmrrigOperator(bpy.types.Operator):
 
         rigify.show_in_front = True # 在前面
 
-        if mmr.Upper_body_linkage:
-            rigify.pose.bones["torso"]["neck_follow"] = 0
-            rigify.pose.bones["torso"]["head_follow"] = 0
-        else:
+        # 脖子跟随
+        if prefs.neck_follow:
             rigify.pose.bones["torso"]["neck_follow"] = 1
+        else:
+            rigify.pose.bones["torso"]["neck_follow"] = 0
+
+        # 头部跟随
+        if prefs.head_follow:
             rigify.pose.bones["torso"]["head_follow"] = 1
+        else:
+            rigify.pose.bones["torso"]["head_follow"] = 0
+
+        # 双眼跟随
+        if prefs.both_eye_follow:
+            rigify.pose.bones["eyes"]["eyes_follow"] = 1
+        else:
+            rigify.pose.bones["eyes"]["eyes_follow"] = 0
 
         not_bone = ['ear.L', 'ear.R', 'jaw_master', 'teeth.B', 'tongue_master', 'teeth.T', 'nose_master']
 
-        blender_version = bpy.app.version_string
-
-        if compare_version(blender_version, "4.9.9"):
-            # 隐藏骨骼
-            for n in not_bone:
-                bone = rigify.data.bones.get(n)
-                bone.hide = True
-        else:
-            # 隐藏骨骼
-            for n in not_bone:
-                bone = rigify.pose.bones.get(n)
+        # 隐藏骨骼（Blender 5.2+ 需使用 pose.bones）
+        for n in not_bone:
+            bone = rigify.pose.bones.get(n)
+            if bone:
                 bone.hide = True
 
         ik_stretch = ["upper_arm_parent.L", "upper_arm_parent.R", "thigh_parent.R","thigh_parent.L" ]
@@ -1502,6 +1510,39 @@ class mmrrigOperator(bpy.types.Operator):
         # 关闭ik拉伸
         for i in ik_stretch:
             rigify.pose.bones[i]["IK_Stretch"] = 0
+
+        # 打开fk跟随
+        for i in ik_stretch:
+            if prefs.arm_to_leg_following:
+                rigify.pose.bones[i]["FK_limb_follow"] = 0
+            else:
+                rigify.pose.bones[i]["FK_limb_follow"] = 1
+
+        # ik-fk偏好设置
+        for i in ik_stretch:
+            if i == "upper_arm_parent.L":
+                if prefs.left_ik_fk_preference:
+                    rigify.pose.bones[i]["IK_FK"] = 0
+                else:
+                    rigify.pose.bones[i]["IK_FK"] = 1
+
+            elif i == "upper_arm_parent.R":
+                if prefs.right_ik_fk_preference:
+                    rigify.pose.bones[i]["IK_FK"] = 0
+                else:
+                    rigify.pose.bones[i]["IK_FK"] = 1
+
+            elif i == "thigh_parent.R":
+                if prefs.right_leg_ik_fk_preference:
+                    rigify.pose.bones[i]["IK_FK"] = 0
+                else:
+                    rigify.pose.bones[i]["IK_FK"] = 1
+
+            elif i == "thigh_parent.L":
+                if prefs.left_leg_ik_fk_preference:
+                    rigify.pose.bones[i]["IK_FK"] = 0
+                else:
+                    rigify.pose.bones[i]["IK_FK"] = 1
 
         # 极向目标
         if mmr.Polar_target:
@@ -1511,6 +1552,9 @@ class mmrrigOperator(bpy.types.Operator):
 
         # 更新场景
         bpy.context.view_layer.update()
+
+        # 控制器线条设置
+        bpy.ops.mmr.controller_wireframe_width()
 
         arms = {}
 
@@ -1555,13 +1599,45 @@ class mmrrigOperator(bpy.types.Operator):
 
         bpy.ops.pose.select_all(action='DESELECT')
 
-        is_gto = ['Face (Primary)', 'Face (Secondary)', 'Torso (Tweak)', 'Fingers (Detail)', 'Fingers (IK)',
+        is_gto = ['Face (Primary)', 'Face (Secondary)', 'Torso (Tweak)', 'Torso (Redirect)', 'Fingers (Detail)', 'Fingers (IK)',
                   'Arm.L (FK)', 'Arm.R (FK)',
                   'Arm.L (Tweak)', 'Arm.R (Tweak)', 'Leg.L (FK)', 'Leg.R (FK)', 'Leg.L (Tweak)', 'Leg.R (Tweak)']
 
         # 隐藏骨骼集合
         for n in is_gto:
             rigify.data.collections_all[n].is_visible = False
+
+        # 左臂ik-fk偏好
+        if prefs.left_ik_fk_preference:
+            rigify.data.collections_all['Arm.L (IK)'].is_visible = True
+            rigify.data.collections_all['Arm.L (FK)'].is_visible = False
+        else:
+            rigify.data.collections_all['Arm.L (IK)'].is_visible = False
+            rigify.data.collections_all['Arm.L (FK)'].is_visible = True
+
+        # 右臂ik-fk偏好
+        if prefs.right_ik_fk_preference:
+            rigify.data.collections_all['Arm.R (IK)'].is_visible = True
+            rigify.data.collections_all['Arm.R (FK)'].is_visible = False
+        else:
+            rigify.data.collections_all['Arm.R (IK)'].is_visible = False
+            rigify.data.collections_all['Arm.R (FK)'].is_visible = True
+
+        # 左腿ik-fk偏好
+        if prefs.left_leg_ik_fk_preference:
+            rigify.data.collections_all['Leg.L (IK)'].is_visible = True
+            rigify.data.collections_all['Leg.L (FK)'].is_visible = False
+        else:
+            rigify.data.collections_all['Leg.L (IK)'].is_visible = False
+            rigify.data.collections_all['Leg.L (FK)'].is_visible = True
+
+        # 右腿ik-fk偏好
+        if prefs.right_leg_ik_fk_preference:
+            rigify.data.collections_all['Leg.R (IK)'].is_visible = True
+            rigify.data.collections_all['Leg.R (FK)'].is_visible = False
+        else:
+            rigify.data.collections_all['Leg.R (IK)'].is_visible = False
+            rigify.data.collections_all['Leg.R (FK)'].is_visible = True
 
         if mmr.Use_ITASC_solver:
             rigify.pose.ik_solver = 'ITASC' # 设置IK解算器
@@ -1595,6 +1671,14 @@ class mmrrigOperator(bpy.types.Operator):
 
         self.report({'INFO'}, f"生成成功, 匹配骨骼数: {arm_number}")
 
+        # 多骨架生成
+        for arm in selected_arm:
+            if arm.name != mmd_arm.name:
+                bpy.ops.object.select_all(action='DESELECT')
+                arm.select_set(True)
+                bpy.context.view_layer.objects.active = arm
+                bpy.ops.object.mmr_rig()
+
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -1611,7 +1695,7 @@ class mmrrigOperator(bpy.types.Operator):
 
 class mmrexportvmdactionsOperator(bpy.types.Operator):
     '''Export VMD actions'''
-    bl_idname = "object.mmr_export_vmd"
+    bl_idname = "mmr.mmr_export_vmd"
     bl_label = "Export VMD actions"
 
     # 确保在操作之前备份数据，用户撤销操作时可以恢复
@@ -1660,7 +1744,7 @@ class mmrexportvmdactionsOperator(bpy.types.Operator):
         return {'FINISHED'}
 
 class MahyPdtOperator(bpy.types.Operator):
-    bl_idname = "object.mdtsu_ops"
+    bl_idname = "mmr.mdtsu_ops"
     bl_label = "Add Emoji Panel"
     # 确保在操作之前备份数据，用户撤销操作时可以恢复
     bl_options = {'REGISTER', 'UNDO'}
@@ -2110,7 +2194,7 @@ class MahyPdtOperator(bpy.types.Operator):
         bpy.ops.pose.select_all(action='DESELECT')
         # 选中并激活骨骼
         bpy.ops.pose.select_all(action='DESELECT')  # 取消所有骨骼选择
-        armature.data.bones.active = armature.data.bones.get(target_bone.name)  # 设置活动骨骼
+        armature.data.bones.active = target_bone.bone  # 设置活动骨骼
         target_bone.select = True  # 选中骨骼
         # 反向设置子级约束
         bpy.ops.constraint.childof_set_inverse(constraint="MMD_Emoji_Manager", owner='BONE')
@@ -2181,6 +2265,8 @@ class MMR_OT_Batch_Adjust_Shape_Key(bpy.types.Operator):
             self.report({'INFO'}, "批量调整已打开")
         else:
             obj.mmr.register_handler = True
+            obj.mmr.last_batch_adjust_value = 0
+            obj.mmr.Batch_adjust_shape_key = 0
             print("sync_mmr_key_values 已关闭")
             self.report({'INFO'}, "批量调整已关闭")
 
@@ -2493,5 +2579,29 @@ class MMR_OT_Designated_Bone_Chain(bpy.types.Operator):
         # 更新当前项
         if not item.separator:
             item.name = selected_bone.name
+
+        return {'FINISHED'}
+
+# 控制器线条设置
+class MMR_OT_Controller_Wireframe_Width(bpy.types.Operator):
+    bl_idname = "mmr.controller_wireframe_width"
+    bl_label = ""
+    bl_description = "控制器线框宽度"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        rigify = context.view_layer.objects.active
+        prefs = context.preferences.addons[__addon_name__].preferences
+
+        if not rigify:
+            return {'CANCELLED'}
+
+        if rigify.type != 'ARMATURE':
+            return {'CANCELLED'}
+
+        # 控制器线条设置
+        for bone in rigify.pose.bones:
+            if bone.custom_shape is not None:
+                bone.custom_shape_wire_width = prefs.controller_wireframe_width
 
         return {'FINISHED'}

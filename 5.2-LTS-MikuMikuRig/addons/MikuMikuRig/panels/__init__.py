@@ -99,6 +99,13 @@ class MMR_property(bpy.types.PropertyGroup):
         description="选择骨骼重定向预设配置",
         items=make_presets_enum('.py'),
     )
+
+    # MMR rigid body是否已构建
+    mmr_root_is_built: BoolProperty(
+        name="MMR Root Is Built",
+        default=False,
+    )
+
     # 禁用手掌修正
     Disable_hand_fix: BoolProperty(
         name="Disable hand fix",
@@ -260,6 +267,7 @@ class MMR_property(bpy.types.PropertyGroup):
     Reference_bones: BoolProperty(
         default=False
     )
+    # 是否显示关节
     joint_show: BoolProperty(
         default=False,
     )
@@ -267,9 +275,6 @@ class MMR_property(bpy.types.PropertyGroup):
         default=True,
     )
     Finger_options: BoolProperty(
-        default=False,
-    )
-    Upper_body_linkage: BoolProperty(
         default=False,
     )
     Thumb_twist_aligns_with_the_world_Z_axis: BoolProperty(
@@ -382,8 +387,7 @@ class MMR_property(bpy.types.PropertyGroup):
     # 批量调整形态
     Batch_adjust_shape_key: FloatProperty(
         default=0.0,
-        min=0.0,
-        max=1.0,
+        step=0.1,
         description="批量调整形态"
     )
     # 是否注册处理器
@@ -420,14 +424,49 @@ class MMR_property(bpy.types.PropertyGroup):
     )
     frame_step: IntProperty(
         default=2,
-        description="帧步长"
+        description="帧步长，值越高，烘培越快，精度越低"
     )
+
+    Physics_frame_step: IntProperty(
+        default=2,
+        description="帧步长，值越高，烘培越快，精度越低"
+    )
+
     # mmd_tool额外选项
     mmd_tool_extras: BoolProperty(
         default=False,
         description="mmd_tool额外选项"
     )
-
+    # 是否显示刚体
+    show_rigid_bodies: BoolProperty(
+        default=False,
+    )
+    # 是否显示原文键名
+    show_original_key_name: BoolProperty(
+        default=False,
+        description="是否显示原文键名"
+    )
+    # 偏好设置
+    preference: BoolProperty(
+        default=False,
+        description="偏好设置"
+    )
+    # 约束名称
+    constraintswitchtool_name_enum: EnumProperty(
+        name="Mode",
+        description="约束名称",
+        items={
+            ("0", "自定义约束名称", "自定义约束名称"),
+            ("1", "mmr_physics", "mmr_physics"),
+            ("2", "mmd_tools_rigid_track", "mmd_tools_rigid_track"),
+            ("3", "MMR-阻尼追踪", "MMR-阻尼追踪"),
+        },
+        default="0"
+    )
+    constraintswitchtool_name: StringProperty(
+        default="",
+        description="自定义约束名称"
+    )
 
 class MMR_Weight_bone_parent_fix(bpy.types.PropertyGroup):
     key: StringProperty(name="Key", default="")
@@ -453,6 +492,52 @@ class MMR_bone_property(bpy.types.PropertyGroup):
         default=(True,) * 3,
         description="Set bone constraints"
     )
+
+    # 阻尼跟踪开关
+    Damping_Tracking_bool: bpy.props.BoolProperty(
+        default=False,
+        description="阻尼跟踪开关"
+    )
+    # 存储阻尼跟踪影响
+    Damping_Tracking_influence: bpy.props.FloatProperty(
+        default=0.0,
+        min=0.0,
+        max=1.0,
+        description="阻尼跟踪影响"
+    )
+    # 是否插入阻尼跟踪影响帧
+    Insert_dt_keyframe: bpy.props.BoolProperty(
+        default=False,
+        description="是否插入阻尼跟踪影响帧"
+    )
+    # 约束开关
+    Constraint_bool: bpy.props.BoolProperty(
+        default=False,
+        description="约束开关"
+    )
+    # 存储约束影响
+    Constraint_influence: bpy.props.FloatProperty(
+        default=0.0,
+        min=0.0,
+        max=1.0,
+        description="约束影响"
+    )
+    # 是否插入约束影响帧
+    Insert_constraint_keyframe: bpy.props.BoolProperty(
+        default=False,
+        description="是否插入约束影响帧"
+    )
+    # 禁用约束时保持变换
+    Disable_keep_transform: bpy.props.BoolProperty(
+        default=False,
+        description="禁用约束时保持当前变换，将约束效果烘焙到骨骼姿态上"
+    )
+    # 手动设置影响值（覆盖每骨骼的存储值）
+    Use_manual_influence: bpy.props.BoolProperty(
+        default=False,
+        description="启用时使用手动设置的影响值，应用于所有选中骨骼"
+    )
+
 
 class MMR_Physics_property(bpy.types.PropertyGroup):
 
@@ -507,12 +592,20 @@ class MMR_Scene_Property(bpy.types.PropertyGroup):
     mmd_rigid_panel_bool: bpy.props.BoolProperty(
         default=False,
     )
+    mmr_rigid_panel_bool: bpy.props.BoolProperty(
+        default=False,
+    )
 
 class MMR_key_property(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
         name="",
         default="",
         description="键名"
+    )
+    zh_name: bpy.props.StringProperty(
+        name="",
+        default="",
+        description="中文键名"
     )
     value: bpy.props.FloatProperty(
         name="",

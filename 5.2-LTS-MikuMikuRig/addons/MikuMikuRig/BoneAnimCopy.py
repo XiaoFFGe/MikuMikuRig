@@ -66,9 +66,9 @@ class MMR_BAC_State(bpy.types.PropertyGroup):
                 if m.selected:
                     owner_selection.append(m.owner)
                     target_selection.append(m.target)
-            for bone in self.owner.data.bones:
+            for bone in self.owner.pose.bones:
                 bone.select = bone.name in owner_selection
-            for bone in self.target.data.bones:
+            for bone in self.target.pose.bones:
                 bone.select = bone.name in target_selection
     
     selected_target: bpy.props.PointerProperty(

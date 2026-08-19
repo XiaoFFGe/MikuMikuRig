@@ -679,9 +679,9 @@ class Physics_Panel(bpy.types.Panel):
 
         layout.use_property_split = True
 
-        layout.prop(rbw, "enabled", text=i18n('Global Rigidbody physical'))
-
         if rbw:
+            layout.prop(rbw, "enabled", text=i18n('Global Rigidbody physical'))
+
             flow = layout.grid_flow(row_major=True, columns=0, even_columns=True, even_rows=False, align=True)
 
             col = flow.column()

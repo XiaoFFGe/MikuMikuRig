@@ -1,0 +1,246 @@
+# FIRST AUTHOR ttrtty5, YEAR.
+        #
+        msgid ""
+        msgstr ""
+        "Project-Id-Version: \n"
+        "Report-Msgid-Bugs-To: \n"
+        "POT-Creation-Date: 2019-04-06 16:26+0800\n"
+        "PO-Revision-Date: 2019-04-06 20:03+0800\n"
+        "MIME-Version: 1.0\n"
+        "Content-Type: text/plain; charset=UTF-8\n"
+        "Content-Transfer-Encoding: 8bit\n"
+        "Last-Translator: \n"
+        "Language-Team: \n"
+        "Language: zh\n"
+        "X-Generator: Poedit 2.2\n"
+#PT_MikuMikuRig_1
+msgid "Auto MMD rig"
+msgstr "一键生成控制器"
+
+msgid "Select MMD armature then press the button"
+msgstr "选择MMD骨骼后点击按键"
+
+msgctxt "Operator"
+msgid "Generate MMD rig"
+msgstr "生成控制器"
+
+msgctxt "Operator"
+msgid "Fix axial"
+msgstr "修正轴向"
+
+msgid "Upper body controller"
+msgstr "上半身控制器"
+
+msgid "Wrist rotation follow arm"
+msgstr "手腕旋转跟随手臂"
+
+msgid "Bent IK bone"
+msgstr "自动弯曲手臂骨骼"
+
+msgid "Shoulder IK"
+msgstr "肩膀联动"
+
+msgid "Replace the controller"
+msgstr "替换实心控制器"
+
+msgid "Use pole target"
+msgstr "使用极向目标"
+#PT_MikuMikuRig_2
+msgid "Fixed MMD model"
+msgstr "修正MMD模型"
+
+msgid "Min IK loop"
+msgstr "最小IK迭代次数"
+
+msgctxt "Operator"
+msgid "Set min IK loop"
+msgstr "设置最小IK迭代次数"
+
+msgid "Multiply Rate"
+msgstr "倍率"
+
+msgctxt "Operator"
+msgid "Rigid Body Mass Multiply"
+msgstr "刚体质量倍增"
+
+msgctxt "Operator"
+msgid "Hide Skirt By Rigid Body"
+msgstr "按刚体隐藏网格"
+
+msgctxt "Operator"
+msgid "Decorate MMD Arm"
+msgstr "美化MMD骨架"
+
+#PT_MikuMikuRig_3
+msgid "Retarget"
+msgstr "动画重定向"
+
+msgid "Select rigify controller then press the button"
+msgstr "选中Rigify控制器后点击按钮"
+
+msgid "Fade in out"
+msgstr "淡入淡出"
+
+msgid "Animation scale"
+msgstr "动画缩放"
+
+msgid "Auto mixamo animation scale"
+msgstr "自动Mixamo动画缩放"
+
+#MMR_PT_LEGACY_panel_3
+msgid "Auto animation import"
+msgstr "自动动画导入"
+
+msgid "Lock mixamo animation location"
+msgstr "锁定Mixamo动画移动"
+
+msgctxt "Operator"
+msgid "Import mixamo animation as NLA"
+msgstr "导入Mixamo动画为NLA片段"
+
+msgctxt "Operator"
+msgid "Import VMD animation as NLA"
+msgstr "导入VMD动画为NLA片段"
+
+msgid "Arm:"
+msgstr "手臂:"
+
+msgid "Leg:"
+msgstr "腿:"
+
+msgid "Auto animation scale"
+msgstr "自动动画缩放"
+
+msgid "Lock animation location"
+msgstr "锁定动画移动"
+
+msgid "Import as NLA strip"
+msgstr "导入为NLA片段"
+
+msgid "1=Undefined 2=IK 3=FK"
+msgstr "1=未定义 2=IK 3=FK"
+
+msgid "Arm IK-FK"
+msgstr "手部IK-FK"
+
+msgid "Leg IK-FK"
+msgstr "腿部IK-FK"
+
+msgctxt "Operator"
+msgid "Import FBX/BVH"
+msgstr "导入FBX/BVH动画"
+
+msgctxt "Operator"
+msgid "Import VMD"
+msgstr "导入VMD动画"
+
+msgctxt "Operator"
+msgid "Bake and export VMD animation"
+msgstr "烘焙并导出VMD动画"
+
+msgid "Only Contain Keyframe"
+msgstr "只导出关键帧"
+
+#PT_MikuMikuRig_4
+msgid "Auto cloth(experimental)"
+msgstr "一键布料(测试功能)"
+
+msgid "This feature is developed in cooperation with"
+msgstr "这个功能是与下列开发者合作开发的"
+
+msgid "Select mesh and rigidbody then press the button"
+msgstr "选中MMD刚体和网格后点击按钮"
+
+msgid "Subdivide level"
+msgstr "细分等级"
+
+msgid "Convert Mod:"
+msgstr "转换模式"
+
+msgid "Bone Constrain"
+msgstr "骨骼约束"
+
+msgid "Auto select mesh"
+msgstr "自动选择模型"
+
+msgid "Auto select rigid body"
+msgstr "自动选择刚体"
+
+msgid "Extend ribbon area"
+msgstr "延展飘带区域"
+
+msgctxt "Operator"
+msgid "Convert rigid body to cloth"
+msgstr "把刚体转换为布料"
+
+#MMR_Arm_Panel
+msgctxt "Operator"
+msgid "Assign (Hot Key:A)"
+msgstr "指定（快捷键:A）"
+
+msgctxt "Operator"
+msgid "Assign Invert (Hot Key:Alt+A)"
+msgstr "指定反向（快捷键:Alt+A）"
+
+msgctxt "Operator"
+msgid "Skip (Hot Key:S)"
+msgstr "跳过（快捷键:S）"
+
+msgctxt "Operator"
+msgid "End Quick Assign"
+msgstr "结束快速指定"
+
+msgctxt "Operator"
+msgid "Start Quick Assign"
+msgstr "开始快速指定"
+
+msgid "preset"
+msgstr "预设"
+
+msgid "Controller Preset"
+msgstr "控制器预设"
+
+msgctxt "Operator"
+msgid "Add Preset"
+msgstr "添加预设"
+
+msgctxt "Operator"
+msgid "Delete Preset"
+msgstr "删除预设"
+
+msgctxt "Operator"
+msgid "Read Preset"
+msgstr "读取预设"
+
+msgctxt "Operator"
+msgid "Overwrite Preset"
+msgstr "覆盖预设"
+
+msgctxt "Operator"
+msgid "Generate Rig with Preset"
+msgstr "生成控制器"
+
+msgctxt "Operator"
+msgid "Generate Rig Without Preset"
+msgstr "生成控制器(不读取预设)"
+
+msgid "Extra Options"
+msgstr "高级选项"
+
+msgid "FK Limb Follow"
+msgstr "FK跟随"
+
+msgid "Neck Follow"
+msgstr "脖子跟随"
+
+msgid "Head Follow"
+msgstr "头部跟随"
+
+msgid "Both Eye Follow"
+msgstr "双眼跟随"
+
+msgid "Use ITASC Solver"
+msgstr "使用ITASC解算器"
+
+msgid "Hide MMD Skeleton"
+msgstr "隐藏MMD骨架"
