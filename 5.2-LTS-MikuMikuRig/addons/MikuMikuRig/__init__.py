@@ -18,8 +18,8 @@ from ...common.i18n.i18n import load_dictionary
 bl_info = {
     "name": "MikuMikuRig",
     "author": "小峰峰哥l",
-    "blender": (4, 5, 0),
-    "version": (3,86),
+    "blender": (5, 2, 0),
+    "version": (5,2,1),
     "description": "MMD骨骼优化工具",
     "tracker_url": "https://space.bilibili.com/2109816568?spm_id_from=333.1007.0.0",
     "support": "COMMUNITY",
@@ -102,8 +102,10 @@ def sync_mmr_key_values(scene,depsgraph):
 
             meshkey = key.meshkey
 
+            prefs = bpy.context.preferences.addons[__addon_name__].preferences
+
             if not obj.mmr.register_handler:
-                if not obj.mmr.direct_operation_shape_key:
+                if not prefs.direct_operation_shape_key:
                     # 同步到值
                     key.value = key.value + change_value
                 else:
@@ -113,7 +115,7 @@ def sync_mmr_key_values(scene,depsgraph):
                 # 是否插入关键帧
                 if bpy.context.scene.tool_settings.use_keyframe_insert_auto:
 
-                    if not obj.mmr.direct_operation_shape_key:
+                    if not prefs.direct_operation_shape_key:
 
                         if obj.mmr.insert_keyframe: # 选中的有关键帧的才会插入关键帧
                             if has_keyframes_for_property(obj, "mmr_key[%d].value" % idx):

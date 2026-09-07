@@ -2239,7 +2239,8 @@ class MahyPdtOperator(bpy.types.Operator):
             item.value = key.value
 
             if item.bool_value:
-                if not obj1.mmr.direct_operation_shape_key:
+                prefs = context.preferences.addons[__addon_name__].preferences
+                if not prefs.direct_operation_shape_key:
                     add_a_lip_panel_driver_single(active_object, obj1, key.name, "var + 0.0", [1.0, 1.0], f"mmr_key[{idx}].value")
                 else:
                     item.meshkey_index = idx
@@ -2285,8 +2286,9 @@ class MMR_OT_Insert_Keyframe(bpy.types.Operator):
         obj = bpy.context.active_object
 
         # 插入关键帧
+        prefs = context.preferences.addons[__addon_name__].preferences
         for idx, item in enumerate(obj.mmr_key):
-            if not obj.mmr.direct_operation_shape_key:
+            if not prefs.direct_operation_shape_key:
                 if item.select:
                     obj.keyframe_insert(data_path="mmr_key[%d].value" % idx, frame=bpy.context.scene.frame_current)
             else:
@@ -2345,11 +2347,12 @@ class MMR_OT_Select_Keyframe_Key(bpy.types.Operator):
         obj = bpy.context.active_object
 
         # 选择有关键帧的key
+        prefs = context.preferences.addons[__addon_name__].preferences
         for idx, item in enumerate(obj.mmr_key):
 
             meshkey = item.meshkey
 
-            if not obj.mmr.direct_operation_shape_key:
+            if not prefs.direct_operation_shape_key:
                 if has_keyframes_for_property(obj, "mmr_key[%d].value" % idx):
                     item.select = True
             else:

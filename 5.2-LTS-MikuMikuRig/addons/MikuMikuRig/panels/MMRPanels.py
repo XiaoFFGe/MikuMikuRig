@@ -47,7 +47,8 @@ class MMR_UL_key(bpy.types.UIList):
             layout.label(text=item.zh_name)
 
         if item.bool_value:
-            if not obj.mmr.direct_operation_shape_key:
+            prefs = context.preferences.addons[__addon_name__].preferences
+            if not prefs.direct_operation_shape_key:
                 layout.prop(item, "value", text="")
             else:
                 meshkey = item.meshkey
@@ -91,6 +92,12 @@ class MMR_key_Options(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
+
+        prefs = context.preferences.addons[__addon_name__].preferences
+
+        if not prefs.enable_mmr_shape_key:
+            return False
+
         if not _mmr_panel_poll(context):
             return False
         return context.active_object is not None
@@ -427,6 +434,11 @@ class MMD_Rig_Opt(bpy.types.Panel):
                         box.prop(prefs, "no_mmr_rigidbody", text=i18n("No MMR Rigidbody"))
                         # 启用 Legacy 0.56 版本功能
                         box.prop(prefs, "use_legacy_mode", text=i18n("Enable Legacy 0.56 Version"))
+                        # 开启MMR形态键
+                        box.prop(prefs, "enable_mmr_shape_key", text=i18n("Enable MMR Shape Key"))
+                        # 是否直接操作形态键
+                        box.prop(prefs, "direct_operation_shape_key", text=i18n("Direct operation shape key"))
+
 
                         # 控制器线框宽度
                         row = box.row()
@@ -513,7 +525,6 @@ class MMD_Rig_Opt(bpy.types.Panel):
                         box.prop(mmr, "panel_preset_U", text=i18n("U"))
                         box.prop(mmr, "panel_preset_E", text=i18n("E"))
                         box.prop(mmr, "panel_preset_O", text=i18n("O"))
-                    layout.prop(mmr, "direct_operation_shape_key", text=i18n("Direct operation shape key"))
 
                     layout.prop(mmr, "Preset_editor", text=i18n("MMR Preset Editor"))
             else:

@@ -143,6 +143,7 @@ class MMR_redirect(bpy.types.Operator):
         bpy.ops.script.python_file_run(filepath=target_script)  # 运行脚本
 
         if mmr.Manually_adjust_FBX_movements:
+            fbx_arm.name = arm.name+'_FBX_actions'
             bpy.ops.object.mode_set(mode='POSE')
             return {"FINISHED"}
 
@@ -623,6 +624,7 @@ class MMR_Import_VMD(bpy.types.Operator):
         bpy.ops.script.python_file_run(filepath=target_script)  # 运行脚本
 
         if mmr.Manually_adjust_VMD_movements:
+            fbx_arm.name = arm.name+'_VMD_actions'
             bpy.ops.object.mode_set(mode='POSE')
             return {"FINISHED"}
 

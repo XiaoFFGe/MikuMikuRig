@@ -136,6 +136,7 @@ dictionary = {
         ("*", "Bone Constraint Switch Tool"): "骨骼约束开关工具",
         ("", "Constraint Name"): "约束名称",
         ("", "Enable Legacy 0.56 Version"): "启用 Legacy 0.56 版本功能",
+        ("", "Enable MMR Shape Key"): "开启MMR形态键",
     }
 }
 

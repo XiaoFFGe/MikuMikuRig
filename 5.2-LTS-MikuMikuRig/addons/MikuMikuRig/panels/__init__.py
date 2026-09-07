@@ -408,11 +408,6 @@ class MMR_property(bpy.types.PropertyGroup):
         default=False,
         description="选中的形态键里有关键帧的才会插入关键帧"
     )
-    # 是否直接操作形态键
-    direct_operation_shape_key: BoolProperty(
-        default=True,
-        description="是否直接操作形态键"
-    )
     # 是否开启物理
     physics_bool: BoolProperty(
         default=False,
