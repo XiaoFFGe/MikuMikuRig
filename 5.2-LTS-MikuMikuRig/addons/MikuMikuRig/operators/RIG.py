@@ -269,12 +269,11 @@ class mmrrigOperator(bpy.types.Operator):
             if key == self.Towards:
                 mmd_arm.rotation_euler.z = value * (3.1415926 / 180)
 
-            # 激活物体
-            bpy.context.view_layer.objects.active = mmd_arm
-            mmd_arm.select_set(True)
-
-            # 应用旋转变换
-            bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
+        # 激活物体
+        bpy.context.view_layer.objects.active = mmd_arm
+        mmd_arm.select_set(True)
+        # 应用旋转变换
+        bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
 
         RIG = bpy.data.objects.get("MMR_Rig_relative")
 
