@@ -183,13 +183,12 @@ class mmrrigOperator(bpy.types.Operator):
     # 确保在操作之前备份数据，用户撤销操作时可以恢复
     bl_options = {'REGISTER', 'UNDO'}
 
-    # 验证物体是不是骨骼
+    # 验证物体是不是骨骼，且处于物体/姿态模式（避免编辑模式下切换模式产生风险）
     @classmethod
     def poll(cls, context):
         obj = context.view_layer.objects.active
-        if obj is not None:
-            if obj.type == 'ARMATURE':
-                return True
+        if obj is not None and obj.type == 'ARMATURE' and context.mode in {'OBJECT', 'POSE'}:
+            return True
         return False
 
     Towards: bpy.props.EnumProperty(
@@ -267,7 +266,7 @@ class mmrrigOperator(bpy.types.Operator):
         Arm_Towards = {'X': -90, 'Y': 180, '-X': 90, '-Y': 0}
         for key, value in Arm_Towards.items():
             if key == self.Towards:
-                mmd_arm.rotation_euler.z = value * (3.1415926 / 180)
+                mmd_arm.rotation_euler.z = radians(value)
 
         # 激活物体
         bpy.context.view_layer.objects.active = mmd_arm
@@ -283,23 +282,16 @@ class mmrrigOperator(bpy.types.Operator):
             :param target_string: 待检查的目标字符串
             :return: 若包含任意关键词返回True，否则返回False
             """
-            for keyword in keywords:
-                if keyword in target_string:
-                    return True
-            return False
+            return any(keyword in target_string for keyword in keywords)
 
         # 判断字符串的左(L)右(R)
         def determine_side(s):
-            parts = s.split('.')
-            if len(parts) < 1:
-                return None
-            suffix = parts[-1].strip().upper()  # 统一转大写并去除首尾空格
+            suffix = s.split('.')[-1].strip().upper()  # 统一转大写并去除首尾空格
             if suffix == 'L':
                 return True
             elif suffix == 'R':
                 return False
-            else:
-                return None
+            return None
 
         def get_bone_world_rotation(armature_obj, bone_name):
             # 获取骨骼对象
@@ -319,44 +311,8 @@ class mmrrigOperator(bpy.types.Operator):
 
             return euler_rotation
 
-        # 对齐骨骼roll
-        def align_bones_roll(A, D, B, C):
-            # A骨骼(D骨架),B骨骼(C骨架)
-            # 获取 D 骨架和 C 骨架对象
-            D_armature_obj = bpy.data.objects.get(D)
-            C_armature_obj = bpy.data.objects.get(C)
-
-            if not D_armature_obj or not C_armature_obj:
-                print("未找到 D 骨架或 C 骨架对象，请检查名称。")
-                return
-
-            if D_armature_obj.type != 'ARMATURE' or C_armature_obj.type != 'ARMATURE':
-                print("D 或 C 对象不是骨架类型，请检查。")
-                return
-
-            # 进入 D 骨架的编辑模式
-            bpy.context.view_layer.objects.active = D_armature_obj
-            bpy.ops.object.mode_set(mode='EDIT')
-            D_edit_bones = D_armature_obj.data.edit_bones
-
-            # 进入 C 骨架的编辑模式
-            bpy.context.view_layer.objects.active = C_armature_obj
-            bpy.ops.object.mode_set(mode='EDIT')
-            C_edit_bones = C_armature_obj.data.edit_bones
-
-            # 获取 A 骨骼和 B 骨骼
-            A_bone = D_edit_bones.get(A)
-            B_bone = C_edit_bones.get(B)
-
-            if not A_bone or not B_bone:
-                print(f"未找到 {A} 骨骼或 {B} 骨骼，请检查名称。")
-                bpy.ops.object.mode_set(mode='OBJECT')
-                return
-
-            B_bone.roll = A_bone.roll
-
-        # 对齐骨骼
-        def align_bones(A, D_armature_obj, B, C_armature_obj, Compare_Boolean=False, count = False, length = 0.0):
+        # 对齐骨骼（将 D 骨架中的 A 骨骼头尾对齐到 C 骨架中的 B 骨骼，成功返回 True）
+        def align_bones(A, D_armature_obj, B, C_armature_obj, length = 0.0):
             # A骨骼(D骨架),B骨骼(C骨架)
 
             if not D_armature_obj or not C_armature_obj:
@@ -381,9 +337,6 @@ class mmrrigOperator(bpy.types.Operator):
                 print(f"未找到 {A} 骨骼或 {B} 骨骼，请检查名称。")
                 bpy.ops.object.mode_set(mode='OBJECT')
                 return False
-            else:
-                if count:
-                    return True
 
             # 转换 B 骨骼的头和尾坐标到世界空间
             world_matrix_C = C_armature_obj.matrix_world
@@ -395,12 +348,6 @@ class mmrrigOperator(bpy.types.Operator):
             local_matrix_D = world_matrix_D.inverted()
             local_head_B = local_matrix_D @ world_head_B
             local_tail_B = local_matrix_D @ world_tail_B
-
-            if Compare_Boolean:
-                if local_head_B[2] < local_tail_B[2]:
-                    return False
-                else:
-                    return True
 
             # 设置 A 骨骼的头和尾
             if A == 'spine':
@@ -503,7 +450,8 @@ class mmrrigOperator(bpy.types.Operator):
             object_b = B
 
             if object_a and object_b:
-                object_a_copy = object_a.copy()  # 复制物体 A
+                # 保留原始缩放（无需复制整个物体）
+                original_scale = object_a.scale.copy()
 
                 # 获取物体 B 的世界矩阵
                 world_matrix_b = object_b.matrix_world
@@ -516,9 +464,7 @@ class mmrrigOperator(bpy.types.Operator):
 
                 # 应用新的局部变换矩阵到物体 A
                 object_a.matrix_local = new_world_matrix
-                object_a.scale = object_a_copy.scale  # 保留原始缩放
-                # 删除object_a_copy
-                bpy.data.objects.remove(object_a_copy, do_unlink=True)
+                object_a.scale = original_scale
                 # 更新场景
                 bpy.context.view_layer.update()
 
@@ -624,7 +570,7 @@ class mmrrigOperator(bpy.types.Operator):
 
             if not distance:
                 bone2.tail = bone1_head
-                print(f"对齐 {bone_name2} 尾坐标为 {np.round(bone2.tail, 4)}")
+                print(f"对齐 {bone_name2} 尾坐标为 {tuple(round(v, 4) for v in bone2.tail)}")
 
         def Calculate_intersection_angle(Arm, a_bone, b_bone):
 
@@ -1271,7 +1217,7 @@ class mmrrigOperator(bpy.types.Operator):
         for n in eye_pt:
             for k , v in config.items():
                 if v == n:
-                    n = 'ORG-' + v
+                    bone_name = 'ORG-' + v
                     # 进入编辑模式
                     bpy.context.view_layer.objects.active = rigify
                     bpy.ops.object.mode_set(mode='EDIT')
@@ -1285,7 +1231,7 @@ class mmrrigOperator(bpy.types.Operator):
 
                     if m_bone:
                         # 复制骨骼（新建骨骼并复制属性）
-                        new_bone = edit_bones.new(name = n +'_parent')
+                        new_bone = edit_bones.new(name = bone_name + '_parent')
                         # 位置
                         new_bone.head = m_bone.head
                         new_bone.tail = m_bone.tail
@@ -1360,6 +1306,12 @@ class mmrrigOperator(bpy.types.Operator):
 
             print(f"键名: {key}, 值: {value1}")
 
+            # 防止预设中引用了模板里不存在的骨骼导致 ct_op.get 返回 None 崩溃
+            ct_list = ct_op.get(value)
+            if ct_list is None:
+                print(f"警告: 模板中不存在骨骼 {value}，按默认 influence=1 处理")
+                ct_list = [True, True, True]
+
             bpy.context.view_layer.objects.active = mmd_arm
             mmd_arm.select_set(True)
             bpy.ops.object.mode_set(mode='POSE')
@@ -1381,7 +1333,7 @@ class mmrrigOperator(bpy.types.Operator):
             constraint.name = constraint_names[0]
             constraint.target = rigify
             constraint.subtarget = value1
-            if not (ct_op.get(value))[0]:
+            if not ct_list[0]:
                 constraint.influence = 0
 
             # 添加复制位置约束
@@ -1389,7 +1341,7 @@ class mmrrigOperator(bpy.types.Operator):
             constraint.name = constraint_names[1]
             constraint.target = rigify
             constraint.subtarget = value1
-            if not (ct_op.get(value))[1]:
+            if not ct_list[1]:
                 constraint.influence = 0
 
             # 添加复制缩放约束
@@ -1397,7 +1349,7 @@ class mmrrigOperator(bpy.types.Operator):
             constraint.name = constraint_names[2]
             constraint.target = rigify
             constraint.subtarget = value1
-            if not (ct_op.get(value))[2]:
+            if not ct_list[2]:
                 constraint.influence = 0
 
         subtarget = ['つま先ＩＫ.L', 'つま先ＩＫ.R', '足ＩＫ.R', '足ＩＫ.L']
