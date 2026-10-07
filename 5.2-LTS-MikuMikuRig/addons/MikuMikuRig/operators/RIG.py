@@ -272,8 +272,8 @@ class mmrrigOperator(bpy.types.Operator):
         # 激活物体
         bpy.context.view_layer.objects.active = mmd_arm
         mmd_arm.select_set(True)
-        # 应用旋转变换
-        bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
+        bpy.ops.object.transform_apply(location=False, rotation=True, scale=False) # 应用旋转变换
+
 
         RIG = bpy.data.objects.get("MMR_Rig_relative")
 
