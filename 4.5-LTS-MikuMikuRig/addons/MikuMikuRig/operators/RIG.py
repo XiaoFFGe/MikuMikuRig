@@ -269,12 +269,10 @@ class mmrrigOperator(bpy.types.Operator):
             if key == self.Towards:
                 mmd_arm.rotation_euler.z = value * (3.1415926 / 180)
 
-            # 激活物体
-            bpy.context.view_layer.objects.active = mmd_arm
-            mmd_arm.select_set(True)
-
-            # 应用旋转变换
-            bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
+        # 激活物体
+        bpy.context.view_layer.objects.active = mmd_arm
+        mmd_arm.select_set(True)
+        bpy.ops.object.transform_apply(location=False, rotation=True, scale=False) # 应用旋转变换
 
         RIG = bpy.data.objects.get("MMR_Rig_relative")
 
@@ -319,42 +317,6 @@ class mmrrigOperator(bpy.types.Operator):
             euler_rotation = rotation.to_euler()
 
             return euler_rotation
-
-        # 对齐骨骼roll
-        def align_bones_roll(A, D, B, C):
-            # A骨骼(D骨架),B骨骼(C骨架)
-            # 获取 D 骨架和 C 骨架对象
-            D_armature_obj = bpy.data.objects.get(D)
-            C_armature_obj = bpy.data.objects.get(C)
-
-            if not D_armature_obj or not C_armature_obj:
-                print("未找到 D 骨架或 C 骨架对象，请检查名称。")
-                return
-
-            if D_armature_obj.type != 'ARMATURE' or C_armature_obj.type != 'ARMATURE':
-                print("D 或 C 对象不是骨架类型，请检查。")
-                return
-
-            # 进入 D 骨架的编辑模式
-            bpy.context.view_layer.objects.active = D_armature_obj
-            bpy.ops.object.mode_set(mode='EDIT')
-            D_edit_bones = D_armature_obj.data.edit_bones
-
-            # 进入 C 骨架的编辑模式
-            bpy.context.view_layer.objects.active = C_armature_obj
-            bpy.ops.object.mode_set(mode='EDIT')
-            C_edit_bones = C_armature_obj.data.edit_bones
-
-            # 获取 A 骨骼和 B 骨骼
-            A_bone = D_edit_bones.get(A)
-            B_bone = C_edit_bones.get(B)
-
-            if not A_bone or not B_bone:
-                print(f"未找到 {A} 骨骼或 {B} 骨骼，请检查名称。")
-                bpy.ops.object.mode_set(mode='OBJECT')
-                return
-
-            B_bone.roll = A_bone.roll
 
         # 对齐骨骼
         def align_bones(A, D_armature_obj, B, C_armature_obj, Compare_Boolean=False, count = False, length = 0.0):
@@ -1116,6 +1078,12 @@ class mmrrigOperator(bpy.types.Operator):
 
         rigify.matrix_world = RIG.matrix_world # 吸附位置
 
+        # 检查骨骼集合是否存在
+        if not '_parent' in rigify.data.collections:
+            # 新建骨骼集合
+            parent_collection = rigify.data.collections.new(name='_parent')
+            parent_collection.is_visible = False
+
         # 设置父子级
         for key, value in config.items():
 
@@ -1175,7 +1143,7 @@ class mmrrigOperator(bpy.types.Operator):
 
                 # 加入集合
                 bone = rigify.pose.bones.get(value + '_parent')
-                rigify.data.collections_all['ORG'].assign(bone)
+                rigify.data.collections_all['_parent'].assign(bone)
             else:
                 print(f"骨骼 {key} 或 {value} 不存在于骨架中")
 
@@ -1246,7 +1214,7 @@ class mmrrigOperator(bpy.types.Operator):
 
             # 加入集合
             bone = rigify.pose.bones.get(value + '_parent')
-            rigify.data.collections_all['ORG'].assign(bone)
+            rigify.data.collections_all['_parent'].assign(bone)
 
         bpy.ops.object.mode_set(mode='EDIT')
 
@@ -1315,7 +1283,7 @@ class mmrrigOperator(bpy.types.Operator):
                 # 加入集合
                 data_bones = rigify.data.bones
                 t_bone = data_bones.get('ORG-' + k + '_parent')
-                rigify.data.collections_all['ORG'].assign(t_bone)
+                rigify.data.collections_all['_parent'].assign(t_bone)
 
         # 捩骨约束
         for key, value in Twist_bones[1].items():
